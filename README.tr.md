@@ -1,87 +1,73 @@
 # prompt-lint
+[![CI](https://github.com/YusufBeratZengin/prompt-lint/actions/workflows/ci.yml/badge.svg)](https://github.com/YusufBeratZengin/prompt-lint/actions/workflows/ci.yml) [![npm](https://img.shields.io/npm/v/prompt-lint)](https://www.npmjs.com/package/prompt-lint) [![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![Node.js](https://img.shields.io/badge/node-%3E%3D20-green.svg)](package.json)
+[English](README.md) | [Türkçe](README.tr.md)
 
-Büyük Dil Modeli (LLM) sistem istemleri ve ajan talimat dosyaları (`CLAUDE.md`, `AGENTS.md`, `.cursorrules`, `.prompt`, `.prompt.md` ve sistem istemi şablonları) için statik analiz denetleyicisi (linter).
+LLM prompt'larını ve `CLAUDE.md`, `AGENTS.md`, `.cursorrules` gibi ajan talimatlarını yerel olarak, çevrim dışı ve ek bağımlılık olmadan denetleyen bir linter.
 
-Yazılım geliştirme ekipleri yapay zekâ kodlama ajanlarını benimsedikçe, ajan talimat dosyaları zamanla şişer, birbiriyle çelişen yönergelerle dolar ve token bütçelerini tüketerek modelin talimatlara uyumunu zayıflatır. `prompt-lint`, hiçbir harici çalışma zamanı bağımlılığı (zero runtime dependencies) olmadan, açıklanabilir statik kurallarla istem dosyalarının temiz, net ve deterministik kalmasını sağlar.
+```text
+$ node bin/prompt-lint.js --no-color test/fixtures/dirty/bloated.md
 
-[English Documentation](README.md)
+test/fixtures/dirty/bloated.md (~211 tokens, 107 words)
+  3:1    warning  Heading depth (5) exceeds recommended maximum depth of 4. Flatten hierarchy to improve LLM instruction retrieval.  PL011
+  5:1    warning  Excessive ALL-CAPS text detected ("DO NOT EVER FORGET TO FOLLOW INSTRUCTIONS PROMP..."). Models do not require shouting; use precise phrasing instead.  PL005
+  8:1    warning  Line is duplicate or near-duplicate (80% similarity) of line 7: "Always use TypeScript for all files in this rep...".  PL002
+  8:1    error    Conflicting directive on line 8 ("Never use TypeScript for all files in this repository") contradicts line 7 ("Always use TypeScript for all files in this repository").  PL003
+  10:8   warning  Vague directive "be careful" lacks actionable criteria. Replace with testable constraints or explicit rules.  PL004
+  10:23  warning  Vague directive "do your best" lacks actionable criteria. Replace with testable constraints or explicit rules.  PL004
+  12:42  warning  Excessive emphasis marker "!!!" detected. Multiple punctuation marks do not improve model adherence.  PL006
+  16:36  error    Unresolved template placeholder "{{user_token}}" detected. Replace with actual value before deployment.  PL007
+  17:10  error    Unresolved placeholder tag "<TODO: finish docs>" detected.  PL007
+  19:10  error    Referenced relative file "./non-existent-documentation-file.md" does not exist on disk.  PL008
+  25:1   warning  Line is duplicate or near-duplicate (100% similarity) of line 24: "This is duplicate instruction content that repe...".  PL002
 
----
-
-## Özellikler
-
-- Sıfır çalışma zamanı bağımlılığı: Tamamen yerleşik Node.js standart kütüphaneleriyle geliştirilmiştir.
-- Yüksek performanslı token tahmincisi: Harici ağırlık veya C++ derlemesi gerektirmeden BPE tokenizer davranışını yaklaşık %5-10 hata payıyla simüle eden alt kelime, unicode ve boşluk sezgiseli.
-- 12 adet açıklanabilir kural: Token bütçesi aşımı, tekrarlanan satırlar, çelişkili yönergeler, bağırma (BÜYÜK HARF yoğunluğu), belirsiz ifadeler, çözülmemiş yer tutucular, kırık göreceli bağlantılar ve açıkta kalan sırlar.
-- Çoklu çıktı biçimleri: ANSI renkleri ve `NO_COLOR` uyumlu terminal çıktısı, JSON ve GitHub Code Scanning ile tam uyumlu OASIS SARIF v2.1.0 formatı.
-- `.promptlintrc.json` ile yapılandırma: Kural önem seviyeleri (`off`, `info`, `warning`, `error`) ve kural parametreleri kontrolü.
-- Programatik API: Kendi derleme ve test hatlarınıza kolayca dahil edilebilir ESM arayüzü.
-
----
+✖ 11 problems (4 errors, 7 warnings)
+```
 
 ## Kurulum
 
-`prompt-lint`, Node.js sürüm 20.0.0 veya üzerini gerektirir.
+Node.js 20 veya üzeri gerekir. Projenize kurmak için:
 
-Genel (global) kurulum:
-```bash
-npm install -g prompt-lint
-```
-
-Veya `npx` ile doğrudan çalıştırma:
-```bash
-npx prompt-lint
-```
-
-Veya geliştirme bağımlılığı olarak ekleme:
 ```bash
 npm install --save-dev prompt-lint
 ```
 
----
+Kurulumdan sonra `npx prompt-lint` ile çalıştırın. Aşağıdaki komutlar kaynak kod deposunda `node bin/prompt-lint.js` kullanır; başka bir projede bu kısmı `npx prompt-lint` ile değiştirin.
 
-## CLI Kullanımı
+## Kullanım
 
-### Otomatik Keşif
-Herhangi bir dosya argümanı verilmediğinde, `prompt-lint` projenizdeki standart ajan ve istem dosyalarını otomatik olarak tarar (`CLAUDE.md`, `AGENTS.md`, `.cursorrules`, `.cursor/rules/*.mdc`, `**/*.prompt`, `**/*.prompt.md`, `**/system*.md`, `**/system*.txt`):
+### CLI
 
-```bash
-prompt-lint
-```
-
-### Belirli Dosyaları Tarama
-Belirli dosya veya dizin yollarını argüman olarak iletebilirsiniz:
+Dosya belirtmezseniz linter, talimat ve prompt dosyalarını alt dizinlerde de arar. Doğrudan dosya yolu verdiğinizde, dosya otomatik taramada hariç tutulsa bile denetlenir.
 
 ```bash
-prompt-lint CLAUDE.md AGENTS.md
-prompt-lint "prompts/**/*.md"
+node bin/prompt-lint.js
+node bin/prompt-lint.js CLAUDE.md AGENTS.md
+node bin/prompt-lint.js --format json CLAUDE.md
+node bin/prompt-lint.js --format sarif CLAUDE.md
 ```
 
-### Standart Girdi (stdin)
-Boru hattı (pipe) üzerinden gelen istem metinlerini analiz edebilirsiniz:
+Terminal metni, JSON ve SARIF v2.1.0 çıktısı üretir. Renk kullanımı TTY durumuna, `NO_COLOR` ve `FORCE_COLOR` değişkenlerine bağlıdır. `--no-color` renkleri kapatır.
+
+### Standart girdi
 
 ```bash
-cat system.prompt | prompt-lint --stdin --stdin-filename system.prompt
+printf 'Run unit tests.\n' | node bin/prompt-lint.js --stdin --stdin-filename system.prompt
 ```
 
-### Çıktı Formatları
+### API
 
-#### Terminal (Varsayılan)
-```bash
-prompt-lint
+ESM API; yapılandırma, dosya tarama, kural ve çıktı biçimlendirme yardımcılarını da dışa aktarır. `lintText`, yapılandırma verilmedikçe yerleşik varsayılanları kullanır. Dosyadaki yapılandırmayı okumak için `loadConfig` çağırın.
+
+```javascript
+import { lintText, lintFiles, estimateTokens } from "prompt-lint";
+
+console.log(estimateTokens("Run unit tests before committing."));
+const result = lintText("Always use TypeScript.\nNever use TypeScript.");
+console.log(result.diagnostics);
+const files = await lintFiles(["CLAUDE.md", "AGENTS.md"]);
 ```
 
-#### JSON Çıktısı
-```bash
-prompt-lint --format json > rapor.json
-```
-
-#### SARIF (GitHub Code Scanning)
-```bash
-prompt-lint --format sarif > sonuclar.sarif
-```
-
-### Komut Satırı Seçenekleri
+### Seçenekler
 
 | Seçenek | Kısa Kod | Açıklama | Varsayılan |
 | --- | --- | --- | --- |
@@ -98,17 +84,23 @@ prompt-lint --format sarif > sonuclar.sarif
 | `--version` | `-v` | Paket sürümünü görüntüler | |
 | `--help` | `-h` | Yardım metnini görüntüler | |
 
----
+## Çıkış kodları
 
-## Kural Tablosu
+| Kod | Anlamı |
+| --- | --- |
+| `0` | Hata yok; uyarı sayısı belirlenen sınırı aşmıyor. Varsayılan olarak uyarı sınırı yoktur. |
+| `1` | Lint hatası var, uyarı sınırı aşıldı veya açıkça belirtilen hedeflerle eşleşen dosya bulunamadı. |
+| `2` | Komut kullanımı veya yapılandırma hatalı. |
 
-Her kural benzersiz bir kimliğe (`PL001` - `PL012`), varsayılan önem derecesine ve yapılandırılabilir seçeneklere sahiptir.
+`--max-warnings 0`, tek bir uyarıda bile başarısız olur. `--quiet` uyarıları raporda gizler; uyarı sınırı uygulanmaya devam eder.
+
+## Kurallar
 
 | Kural Kimliği | Kural Adı | Kategori | Varsayılan Seviye | Açıklama |
 | --- | --- | --- | --- | --- |
 | `PL001` | `token-budget` | Bütçe | `warning` | Tahmini token sayısı belirlenen bütçeyi aşan dosyaları uyarır. |
-| `PL002` | `duplicate-content` | Fazlalık | `warning` | Normalleştirilmiş n-gram shingles ve Jaccard benzerliği ile mükerrer veya çok yakın satırları tespit eder. |
-| `PL003` | `contradictory-directives` | Mantık | `error` | Aynı hedef üzerinde çelişen talimatları ("her zaman X yap" ile "asla X yapma") tespit eder. |
+| `PL002` | `duplicate-content` | Fazlalık | `warning` | Jaccard benzerliğiyle tekrar eden veya birbirine çok benzeyen satırları bulur. |
+| `PL003` | `contradictory-directives` | Mantık | `error` | Nesnesi ve koşulu aynı olan karşıt İngilizce yönergeleri tespit eder. |
 | `PL004` | `vague-directive` | Açıklık | `warning` | "Be careful", "do your best" veya "ensure high quality" gibi ölçülemez ve belirsiz yönergeleri tespit eder. |
 | `PL005` | `shouting-density` | Biçim | `warning` | Modele bağıran aşırı BÜYÜK HARFLİ kelime yoğunluğunu belirler. Standart kısaltmaları hariç tutar. |
 | `PL006` | `excessive-emphasis` | Biçim | `warning` | Tekrarlanan noktalama işaretlerini (`!!!`, `???`) veya iç içe kalın-italik vurguları tespit eder. |
@@ -119,120 +111,99 @@ Her kural benzersiz bir kimliğe (`PL001` - `PL012`), varsayılan önem derecesi
 | `PL011` | `excessive-heading-depth` | Biçim | `warning` | Başlık derinliği 4'ten büyük olan (`#####` ve `######`) parçalanmış başlıkları tespit eder. |
 | `PL012` | `list-item-verb` | Biçim | `off` | Liste maddelerinin etken bir eylem fiiliyle başlamasını denetler. (İsteğe bağlı, varsayılan kapalı). |
 
----
+## Örnekler
+
+[CLAUDE.bad.md](examples/CLAUDE.bad.md) ve [CLAUDE.good.md](examples/CLAUDE.good.md) dosyalarını [örnek yapılandırmayla](examples/.promptlintrc.json) karşılaştırın. İlk komut 1, ikinci komut 0 çıkış koduyla tamamlanır.
+
+```bash
+node bin/prompt-lint.js --config examples/.promptlintrc.json examples/CLAUDE.bad.md
+node bin/prompt-lint.js --config examples/.promptlintrc.json examples/CLAUDE.good.md
+```
+
+```text
+$ node bin/prompt-lint.js --no-color --config examples/.promptlintrc.json examples/CLAUDE.bad.md
+
+examples/CLAUDE.bad.md (~30 tokens, 10 words)
+  4:1   error    Conflicting directive on line 4 ("Never use TypeScript") contradicts line 3 ("Always use TypeScript").  PL003
+  6:1   warning  Vague directive "Be careful" lacks actionable criteria. Replace with testable constraints or explicit rules.  PL004
+  6:11  warning  Excessive emphasis marker "!!!" detected. Multiple punctuation marks do not improve model adherence.  PL006
+
+✖ 3 problems (1 error, 2 warnings)
+```
 
 ## Yapılandırma
 
-`prompt-lint`, çalışma dizininde bulunan `.promptlintrc.json` dosyasını veya `package.json` içindeki `"promptlint"` alanını otomatik olarak okur.
-
-Örnek `.promptlintrc.json`:
+Çalışma dizininde sırasıyla `.promptlintrc.json`, `.promptlintrc` ve `package.json` içindeki `promptlint` alanı aranır. Belirli bir dosyayı kullanmak için `--config` verin.
 
 ```json
 {
-  "budget": {
-    "maxTokens": 2000
-  },
-  "rules": {
-    "PL001": "warning",
-    "PL002": "warning",
-    "PL003": "error",
-    "PL004": "warning",
-    "PL005": "warning",
-    "PL006": "warning",
-    "PL007": "error",
-    "PL008": "error",
-    "PL009": "error",
-    "PL010": "warning",
-    "PL011": "warning",
-    "PL012": "off"
-  },
-  "options": {
-    "PL001": {
-      "maxTokens": 2500
-    },
-    "PL002": {
-      "threshold": 0.80,
-      "minWords": 4
-    },
-    "PL010": {
-      "maxLineLength": 500,
-      "maxParagraphWords": 250
-    }
-  },
-  "ignore": [
-    "node_modules/**",
-    ".git/**",
-    "dist/**",
-    "coverage/**"
-  ]
+  "$schema": "https://raw.githubusercontent.com/YusufBeratZengin/prompt-lint/main/schema.json",
+  "budget": { "maxTokens": 2000 },
+  "rules": { "PL003": "error", "PL012": "off" },
+  "options": { "PL002": { "threshold": 0.8, "minWords": 4 } },
+  "ignore": ["generated/**"]
 }
 ```
 
----
+[JSON Schema](schema.json), editörde yapılandırma denetimi sağlar. Tanınmayan üst düzey alanlar, kural kimlikleri ve geçersiz önem seviyeleri 2 çıkış koduyla reddedilir. Hata mesajı dosyayı ve sorunlu alanı belirtir. Kural kimlikleri ve önem seviyelerinde büyük/küçük harf ayrımı yapılmaz. Seviyeler `off`, `info`, `warning` ve `error` değerleridir. Eski gösterimdeki `0`/`false`, `1` ve `2`/`true` sırasıyla kapalı, uyarı ve hata anlamına gelir. Hariç tutma desenleri varsayılan listeye eklenir.
 
-## Programatik API
+## Nasıl çalışır?
 
-`prompt-lint`, Node.js iş akışlarına entegrasyon için ESM arayüzü sunar:
+Linter, Markdown satırlarını ayrıştırır, token sayısını tahmin eder, on iki deterministik kuralı çalıştırır ve bulguları raporlar. Kurallar ağ isteği yapmaz. PL003, karşıt İngilizce yönergelerin normalleştirilmiş nesneleri ve koşul ekleri aynıysa çelişki bildirir; iki yönergede de koşul bulunmaması da buna dahildir. Farklı koşulları raporlamaz. Eski `threshold` seçeneği kabul edilir ancak bu birebir eşleşme yöntemini artık etkilemez.
 
-```javascript
-import { lintFile, lintFiles, lintText, estimateTokens } from "prompt-lint";
+## Sınırlamalar ve gizlilik
 
-// Bir metin için token tahmini alma
-const stats = estimateTokens("Her zaman dosyaları Prettier ile formatlayın.");
-console.log(`Token: ${stats.tokens}, Kelime: ${stats.words}`);
+Token sayıları sezgisel tahminlerdir; araç bir tokenizer değildir. Doğruluk metne ve modele göre değişir. Kesin bütçe için hedef modelin tokenizer'ını kullanın. Statik kurallar anlam düzeyindeki çelişkileri kaçırabilir veya geçerli talimatları işaretleyebilir. Dile bağlı kurallar ağırlıklı olarak İngilizceyi tanır.
 
-// Ham istem metnini denetleme
-const textResult = lintText("Never use TypeScript.\nAlways use TypeScript.");
-for (const diag of textResult.diagnostics) {
-  console.log(`[${diag.ruleId}] Satır ${diag.line}: ${diag.message}`);
-}
+Analiz yerel olarak çalışır; prompt'lar dışarı gönderilmez. Sır bildirimlerinde eşleşen değer maskelenir ancak raporda başka prompt metinleri ve dosya yolları bulunabilir. Paylaşmadan önce raporu gözden geçirin.
 
-// Diskteki dosyaları denetleme
-const fileResults = await lintFiles(["CLAUDE.md", "AGENTS.md"]);
+## Pre-commit ve CI
+
+Kaynak kod deposunda bu betiği `.git/hooks/pre-commit` dosyasına koyun. POSIX sistemlerde çalıştırma izni verin. Betik, çalışma ağacındaki talimat dosyalarını denetler. Başka bir projede yukarıdaki geliştirme bağımlılığını kurup komutu `npx --no-install prompt-lint --max-warnings 0` olarak değiştirin.
+
+```sh
+#!/bin/sh
+node bin/prompt-lint.js --max-warnings 0 || exit 1
 ```
 
----
-
-## CI / CD Entegrasyonu
-
-### GitHub Actions İş Akışı
-
-SARIF raporlarını doğrudan GitHub Code Scanning sekmesine yüklemek için iş akışınıza ekleyebilirsiniz:
+Bu deponun kaynak kodunu denetlemek için aşağıdaki GitHub Action kullanılabilir. Başka bir projede paketi devDependencies'e ekleyin ve son komutu `npx --no-install prompt-lint --max-warnings 0` olarak değiştirin.
 
 ```yaml
-name: Prompt Quality
-
-on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-
+name: Prompt quality
+on: [push, pull_request]
+permissions:
+  contents: read
 jobs:
-  lint-prompts:
+  lint:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: 20
-
-      - name: Run prompt-lint SARIF
-        run: npx prompt-lint --format sarif > results.sarif
-        continue-on-error: true
-
-      - name: Upload SARIF to GitHub Code Scanning
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: results.sarif
+          node-version: 24
+      - run: npm ci
+      - run: node bin/prompt-lint.js --max-warnings 0
 ```
 
----
+SARIF raporunu GitHub Code Scanning'e yüklemek için ilgili upload action ve `security-events: write` izni kullanılabilir.
+
+## Geliştirme
+
+Kaynak kod deposunda:
+
+```bash
+npm ci
+npm run lint
+npm test
+npm pack --dry-run
+```
+
+Testler ağ erişimi olmadan `node:test` ile çalışır. CI, Windows ve Linux üzerinde Node.js 20, 22 ve 24 sürümlerini kapsar.
+
+## Katkıda bulunma
+
+Kurulum, kural geliştirme, commit biçimi ve yayın adımları [CONTRIBUTING.md](CONTRIBUTING.md) dosyasındadır. Güvenlik açıklarını [SECURITY.md](SECURITY.md) üzerinden özel olarak bildirin. Toplulukta [davranış kuralları](CODE_OF_CONDUCT.md) geçerlidir.
 
 ## Lisans
 
-MIT Lisansı. Telif Hakkı (c) 2026 Yusuf Berat Zengin.
-Detaylar için [LICENSE](LICENSE) dosyasına bakınız.
+[MIT](LICENSE). Telif hakkı (c) 2026 Yusuf Berat Zengin.

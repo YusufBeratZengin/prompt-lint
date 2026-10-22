@@ -1,10 +1,10 @@
 import { parseArgs } from "node:util";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { loadConfig } from "./config.js";
+import { loadConfig, validateConfig } from "./config.js";
 import { scanFiles } from "./scanner.js";
 import { lintFiles, lintText } from "./linter.js";
-import { getFormatter } from "./formatters/index.js";
+import { getFormatter, formatters } from "./formatters/index.js";
 
 const HELP_TEXT = `prompt-lint - Linter for LLM prompt and agent instruction files
 
@@ -121,6 +121,30 @@ export async function runCli(args = process.argv.slice(2), io = {}) {
   }
 
   // CLI overrides
+  const maxWarnings = Number(values["max-warnings"]);
+  try {
+    if (!Object.hasOwn(formatters, values.format.toLowerCase())) {
+      throw new Error(`Invalid --format: ${values.format}. Allowed values: stylish, json, sarif.`);
+    }
+    if (!Number.isInteger(maxWarnings) || maxWarnings < -1) {
+      throw new Error("Invalid --max-warnings. Allowed values: -1 or a non-negative integer.");
+    }
+    if (values["max-tokens"] != null &&
+        (!Number.isFinite(Number(values["max-tokens"])) || Number(values["max-tokens"]) <= 0)) {
+      throw new Error("Invalid --max-tokens. Allowed values: positive finite numbers.");
+    }
+    for (const override of values.rule) {
+      const parts = override.split("=");
+      if (parts.length !== 2 || !parts[0] || !parts[1]) {
+        throw new Error(`Invalid --rule: ${override}. Expected <id>=<severity>.`);
+      }
+      validateConfig({ rules: { [parts[0]]: parts[1] } }, "--rule");
+    }
+  } catch (err) {
+    errOut.write(`prompt-lint usage error: ${err.message}\n\n${HELP_TEXT}`);
+    return 2;
+  }
+
   if (values["max-tokens"]) {
     const maxTokens = Number(values["max-tokens"]);
     if (!Number.isNaN(maxTokens) && maxTokens > 0) {
@@ -168,6 +192,11 @@ export async function runCli(args = process.argv.slice(2), io = {}) {
     results = await lintFiles(files, { config });
   }
 
+  // Count all diagnostics before --quiet hides warnings from the report.
+  const diagnostics = results.flatMap(r => r.diagnostics);
+  const totalErrors = diagnostics.filter(d => d.severity === "error").length;
+  const totalWarnings = diagnostics.filter(d => d.severity === "warning").length;
+
   // Filter diagnostics if --quiet is enabled
   if (values.quiet) {
     for (const r of results) {
@@ -177,22 +206,10 @@ export async function runCli(args = process.argv.slice(2), io = {}) {
 
   // Format and print output
   const formatter = getFormatter(values.format);
-  const formattedOutput = formatter(results, { color: !values["no-color"] });
+  const formattedOutput = formatter(results, { color: values["no-color"] ? false : undefined });
   out.write(formattedOutput.endsWith("\n") ? formattedOutput : formattedOutput + "\n");
 
   // Determine exit code
-  let totalErrors = 0;
-  let totalWarnings = 0;
-
-  for (const r of results) {
-    for (const d of r.diagnostics) {
-      if (d.severity === "error") totalErrors++;
-      if (d.severity === "warning") totalWarnings++;
-    }
-  }
-
-  const maxWarnings = Number(values["max-warnings"]);
-
   if (totalErrors > 0) {
     return 1;
   }

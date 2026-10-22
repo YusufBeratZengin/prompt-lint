@@ -1,10 +1,28 @@
-import { tokenizeWords, jaccardSimilarity, stripMarkdownFormatting } from "../utils/text.js";
+/**
+ * PL003 uses an English-language heuristic, not semantic contradiction detection.
+ * Split each target at its first in/on/for/before/after/when/during/unless/outside/
+ * inside qualifier. Opposing directives conflict only when their normalized
+ * objects match and their qualifier tails (including the preposition) match or
+ * are both empty. Case, punctuation and whitespace are normalized; object stop
+ * words are ignored. Different scopes are deliberately left unreported.
+ */
+import { tokenizeWords, stripMarkdownFormatting } from "../utils/text.js";
 
 const STOP_WORDS = new Set([
   "a", "an", "the", "to", "for", "in", "on", "at", "by", "with",
   "from", "of", "and", "or", "as", "is", "be", "are", "do", "does",
   "use", "using", "all", "any", "your", "our", "their", "this", "that"
 ]);
+
+function normalizeTarget(text) {
+  const qualifier = /\b(?:in|on|for|before|after|when|during|unless|outside|inside)\b/i.exec(text);
+  const object = qualifier ? text.slice(0, qualifier.index) : text;
+  const tail = qualifier ? text.slice(qualifier.index) : "";
+  return {
+    object: tokenizeWords(object).filter(word => !STOP_WORDS.has(word)).join(" "),
+    qualifier: tokenizeWords(tail).join(" ")
+  };
+}
 
 /**
  * Rule PL003: Contradictions between "always X" / "never X" style directives
@@ -21,7 +39,6 @@ export default {
   },
 
   run(context) {
-    const threshold = context.options?.threshold ?? 0.6;
     const diagnostics = [];
 
     // Patterns for polarity
@@ -42,15 +59,14 @@ export default {
 
       if (posMatch) {
         const targetText = posMatch[1].trim();
-        const contentWords = tokenizeWords(targetText).filter(w => !STOP_WORDS.has(w));
-        if (contentWords.length >= 1) {
+        const normalized = normalizeTarget(targetText);
+        if (normalized.object) {
           directives.push({
             lineNumber: lineInfo.lineNumber,
             polarity: "positive",
             directive: posMatch[0],
             targetText,
-            contentWords: new Set(contentWords),
-            firstContentWord: contentWords[0],
+            ...normalized,
             raw: lineInfo.raw
           });
         }
@@ -58,15 +74,14 @@ export default {
 
       if (negMatch) {
         const targetText = negMatch[1].trim();
-        const contentWords = tokenizeWords(targetText).filter(w => !STOP_WORDS.has(w));
-        if (contentWords.length >= 1) {
+        const normalized = normalizeTarget(targetText);
+        if (normalized.object) {
           directives.push({
             lineNumber: lineInfo.lineNumber,
             polarity: "negative",
             directive: negMatch[0],
             targetText,
-            contentWords: new Set(contentWords),
-            firstContentWord: contentWords[0],
+            ...normalized,
             raw: lineInfo.raw
           });
         }
@@ -83,24 +98,7 @@ export default {
           continue;
         }
 
-        const similarity = jaccardSimilarity(dirA.contentWords, dirB.contentWords);
-
-        let commonCount = 0;
-        for (const word of dirA.contentWords) {
-          if (dirB.contentWords.has(word)) commonCount++;
-        }
-
-        const minSize = Math.min(dirA.contentWords.size, dirB.contentWords.size);
-        const overlapRatio = minSize > 0 ? commonCount / minSize : 0;
-
-        // Conflict occurs if:
-        // 1. High Jaccard similarity between content words
-        // 2. High overlap ratio (e.g. "typescript" in both)
-        // 3. Or identical first content word (e.g. both start action on same subject)
-        let isConflict =
-          similarity >= threshold ||
-          overlapRatio >= 0.5 ||
-          (commonCount >= 1 && dirA.firstContentWord === dirB.firstContentWord);
+        const isConflict = dirA.object === dirB.object && dirA.qualifier === dirB.qualifier;
 
         if (isConflict) {
           diagnostics.push({

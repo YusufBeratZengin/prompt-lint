@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Configuration validation with actionable errors and a published JSON Schema.
+- CLI regression coverage for colors, exit codes, warning limits, quiet output, usage errors, and invalid configurations.
+- Runnable good/bad instruction examples and example configuration.
+- Tag-triggered npm release workflow using trusted publishing, provenance, and a version check.
+- Issue forms, pull request template, Contributor Covenant 2.1, and Dependabot configuration.
+- Exit-code tables, pre-commit and CI examples, and owner release instructions.
+- Version-controlled lockfile, LF attributes, and Node.js 24 CI coverage.
+
+### Changed
+
+- Include Turkish documentation, changelog, security policy, and config schema in the npm package.
+- Add public/provenance publish settings and test/self-lint checks before publication.
+- Refresh English and Turkish READMEs with matching structure, badges, and real terminal output.
+- Describe token counts as heuristic estimates and remove unsupported tokenizer accuracy claims.
+
+### Fixed
+
+- Respect TTY detection, NO_COLOR, and FORCE_COLOR for default terminal output.
+- Avoid PL003 contradictions between directives with different qualifier scopes or objects.
+- Emit only the most specific PL009 diagnostic for overlapping secret matches.
+
 ## [0.1.0] - 2026-10-22
 
 ### Added

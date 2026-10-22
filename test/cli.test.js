@@ -3,7 +3,102 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { spawnSync } from "node:child_process";
 import { runCli } from "../src/cli.js";
+
+function runProcess(args, { env: overrides = {}, input } = {}) {
+  const env = { ...process.env };
+  delete env.FORCE_COLOR;
+  delete env.NO_COLOR;
+  return spawnSync(process.execPath, ["bin/prompt-lint.js", ...args], {
+    encoding: "utf8", env: { ...env, ...overrides }, input
+  });
+}
+
+for (const { name, env, args = [], colored } of [
+  { name: "piped stdout is plain", env: {}, colored: false },
+  { name: "FORCE_COLOR enables piped colors", env: { FORCE_COLOR: "1" }, colored: true },
+  { name: "NO_COLOR disables colors", env: { NO_COLOR: "1" }, colored: false },
+  { name: "--no-color overrides FORCE_COLOR", env: { FORCE_COLOR: "1" }, args: ["--no-color"], colored: false }
+]) {
+  test(`cli: ${name}`, () => {
+    const result = runProcess(["test/fixtures/dirty/bloated.md", ...args], { env });
+    assert.equal(result.status, 1, result.stderr);
+    assert.equal(result.stdout.includes("\u001b["), colored);
+  });
+}
+
+for (const { name, input, args = [], code } of [
+  { name: "clean", input: "Run unit tests.", code: 0 },
+  { name: "errors", input: "Always use TypeScript.\nNever use TypeScript.", code: 1 },
+  { name: "warnings allowed by default", input: "Be careful.", code: 0 },
+  { name: "warnings exceed limit", input: "Be careful.", args: ["--max-warnings", "0"], code: 1 },
+  { name: "warnings equal limit", input: "Be careful.", args: ["--max-warnings", "1"], code: 0 },
+  { name: "quiet keeps warning limit", input: "Be careful.", args: ["--quiet", "--max-warnings", "0"], code: 1 },
+  { name: "unknown flag", args: ["--unknown"], code: 2 },
+  { name: "unknown format", args: ["--format", "xml"], code: 2 },
+  { name: "bad warning limit", args: ["--max-warnings", "many"], code: 2 },
+  { name: "bad token limit", args: ["--max-tokens", "Infinity"], code: 2 },
+  { name: "bad rule ID", args: ["--rule", "PL999=error"], code: 2 },
+  { name: "bad rule severity", args: ["--rule", "PL001=fatal"], code: 2 },
+  { name: "bad rule syntax", args: ["--rule", "PL001"], code: 2 }
+]) {
+  test(`cli exit code: ${name}`, () => {
+    const result = runProcess(["--stdin", ...args], { input: input || "Run tests." });
+    assert.equal(result.status, code, result.stderr);
+    if (code === 2) {
+      assert.match(result.stderr, /Usage:/);
+      assert.doesNotMatch(result.stderr, /\n\s+at |Error \[|Fatal prompt-lint error/);
+    }
+  });
+}
+
+test("cli: --quiet hides warnings and retains errors", () => {
+  const result = runProcess(["--stdin", "--quiet", "--format", "json"], {
+    input: "Be careful.\nAlways use TypeScript.\nNever use TypeScript."
+  });
+  assert.equal(result.status, 1, result.stderr);
+  const messages = JSON.parse(result.stdout)[0].messages;
+  assert.equal(messages.length, 1);
+  assert.equal(messages[0].severity, "error");
+});
+
+for (const { config, key, allowed } of [
+  { config: { rules: { PL999: "error" } }, key: "rules.PL999", allowed: "PL012" },
+  { config: { rules: { PL001: "fatal" } }, key: "rules.PL001", allowed: "warning" },
+  { config: { rulez: {} }, key: "rulez", allowed: "$schema" }
+]) {
+  test(`cli config error: ${key}`, t => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "prompt-lint-config-"));
+    t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+    const file = path.join(dir, "invalid.json");
+    fs.writeFileSync(file, JSON.stringify(config));
+    const result = runProcess(["--config", file, "--stdin"], { input: "Run tests." });
+    assert.equal(result.status, 2);
+    assert.ok(result.stderr.includes(file));
+    assert.ok(result.stderr.includes(key));
+    assert.ok(result.stderr.includes(allowed));
+    assert.doesNotMatch(result.stderr, /\n\s+at /);
+  });
+}
+
+test("cli: runnable examples fail and pass as documented", () => {
+  for (const [file, expected] of [["bad", 1], ["good", 0]]) {
+    const result = runProcess(["--config", "examples/.promptlintrc.json", `examples/CLAUDE.${file}.md`]);
+    assert.equal(result.status, expected, result.stderr);
+  }
+});
+
+test("cli: README terminal output matches a real run", () => {
+  const result = runProcess(["--no-color", "test/fixtures/dirty/bloated.md"]);
+  assert.equal(result.status, 1, result.stderr);
+  for (const file of ["README.md", "README.tr.md"]) {
+    const readme = fs.readFileSync(file, "utf8");
+    const block = readme.match(/```text\n\$ node bin\/prompt-lint\.js --no-color test\/fixtures\/dirty\/bloated\.md\n([\s\S]*?)```/);
+    assert.ok(block, `Missing terminal example in ${file}`);
+    assert.equal(block[1], result.stdout, `Stale output in ${file}`);
+  }
+});
 
 // The dirty fixture holds a placeholder instead of a secret-shaped string, so
 // scanners do not flag the repo. The real-looking value is built at run time.

@@ -9,6 +9,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     name: Test (Node ${{ matrix.node-version }} on ${{ matrix.os }})
@@ -17,7 +21,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
-        node-version: [20.x, 22.x]
+        node-version: [20.x, 22.x, 24.x]
 
     steps:
       - name: Checkout repository
@@ -27,9 +31,16 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
+          cache: npm
+
+      - name: Install from lockfile
+        run: npm ci
 
       - name: Run tests
         run: node --test
 
       - name: Run self lint
-        run: node bin/prompt-lint.js
+        run: npm run lint
+
+      - name: Check package contents
+        run: npm pack --dry-run

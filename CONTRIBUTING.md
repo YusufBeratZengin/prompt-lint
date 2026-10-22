@@ -9,6 +9,8 @@ Thank you for your interest in contributing to `prompt-lint`. This project aims 
 
 `prompt-lint` has zero runtime dependencies and uses the native Node.js test runner (`node:test`). You do not need to install third-party packages to develop or run tests.
 
+Keep `package-lock.json` in version control so CI and releases can use `npm ci` reproducibly, even while the dependency set is empty.
+
 ## Development Workflow
 
 1. Clone the repository:
@@ -61,6 +63,21 @@ This project uses Conventional Commits:
 - `docs: update SARIF integration instructions in README`
 - `test: add edge cases for Jaccard similarity in PL002`
 - `refactor: optimize token chunking in token-estimator`
+
+## Releasing
+
+The owner must first configure an [npm trusted publisher](https://docs.npmjs.com/trusted-publishers/) for user `YusufBeratZengin`, repository `prompt-lint`, workflow filename `release.yml`, and environment `npm`. Enable direct `npm publish` for that publisher and configure the matching GitHub environment. The workflow uses Node.js 24 with npm 11.5.1 or newer for OIDC authentication; it contains no npm token.
+
+For a release, update the Unreleased changelog entries, bump the SemVer version in both `package.json` and `package-lock.json`, and run:
+
+```bash
+npm ci
+npm run lint
+npm test
+npm pack --dry-run
+```
+
+Review the package contents, then commit with `chore(release): vX.Y.Z`, using the actual version in place of `X.Y.Z`. Create the matching version tag and push it when ready to publish. Only a pushed tag matching `v*.*.*` triggers `.github/workflows/release.yml`; the job checks that the tag equals the package version, reruns checks, and publishes with provenance and public access. Do not run the release workflow just to validate a contribution.
 
 ## License
 

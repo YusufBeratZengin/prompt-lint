@@ -2,11 +2,36 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { lintText } from "../../src/linter.js";
 
+for (const [positive, negative] of [
+  ["Always run tests before committing.", "Never run tests in production."],
+  ["Always use tabs in Makefiles.", "Never use tabs in Python files."],
+  ["Always run tests.", "Never run tests in production."],
+  ["Always run unit tests.", "Never run integration tests."],
+  ["Always run tests before committing.", "Never run tests after committing."]
+]) {
+  test(`PL003 false-positive: ${positive} / ${negative}`, () => {
+    const result = lintText(`${positive}\n${negative}`);
+    assert.equal(result.diagnostics.filter(d => d.ruleId === "PL003").length, 0);
+  });
+}
+
+test("PL003: unqualified TypeScript contradiction produces one error", () => {
+  const diagnostics = lintText("Always use TypeScript.\nNever use TypeScript.")
+    .diagnostics.filter(d => d.ruleId === "PL003");
+  assert.equal(diagnostics.length, 1);
+  assert.equal(diagnostics[0].severity, "error");
+});
+
+test("PL003: normalizes case and spacing in matching qualifiers", () => {
+  const result = lintText("Always use tabs in Makefiles.\nNever use TABS IN   makefiles.");
+  assert.equal(result.diagnostics.filter(d => d.ruleId === "PL003").length, 1);
+});
+
 test("PL003: detects contradictory directives with always vs never", () => {
   const content = [
     "Always use TypeScript for all files.",
     "Write concise and maintainable code.",
-    "Never use TypeScript in this project."
+    "Never use TypeScript for all files."
   ].join("\n");
 
   const result = lintText(content);

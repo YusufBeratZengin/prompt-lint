@@ -8,17 +8,23 @@
   },
   "main": "./src/index.js",
   "exports": {
-    ".": "./src/index.js"
+    ".": "./src/index.js",
+    "./package.json": "./package.json"
   },
   "files": [
     "bin",
     "src",
     "LICENSE",
-    "README.md"
+    "README.md",
+    "README.tr.md",
+    "CHANGELOG.md",
+    "SECURITY.md",
+    "schema.json"
   ],
   "scripts": {
     "test": "node --test",
-    "lint": "node ./bin/prompt-lint.js"
+    "lint": "node ./bin/prompt-lint.js",
+    "prepublishOnly": "npm test && node bin/prompt-lint.js"
   },
   "repository": {
     "type": "git",
@@ -43,5 +49,10 @@
   "homepage": "https://github.com/YusufBeratZengin/prompt-lint#readme",
   "engines": {
     "node": ">=20.0.0"
-  }
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "sideEffects": false
 }

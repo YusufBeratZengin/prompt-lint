@@ -5,7 +5,7 @@
 DO NOT EVER FORGET TO FOLLOW INSTRUCTIONS PROMPTLY!
 
 Always use TypeScript for all files in this repository.
-Never use TypeScript in any circumstance.
+Never use TypeScript for all files in this repository.
 
 Please be careful and do your best when writing code.
 

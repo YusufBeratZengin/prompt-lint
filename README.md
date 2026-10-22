@@ -1,87 +1,73 @@
 # prompt-lint
+[![CI](https://github.com/YusufBeratZengin/prompt-lint/actions/workflows/ci.yml/badge.svg)](https://github.com/YusufBeratZengin/prompt-lint/actions/workflows/ci.yml) [![npm](https://img.shields.io/npm/v/prompt-lint)](https://www.npmjs.com/package/prompt-lint) [![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![Node.js](https://img.shields.io/badge/node-%3E%3D20-green.svg)](package.json)
+[English](README.md) | [Türkçe](README.tr.md)
 
-A static analysis linter for Large Language Model (LLM) system prompts and agent instruction files (`CLAUDE.md`, `AGENTS.md`, `.cursorrules`, `.prompt`, `.prompt.md`, and system prompt templates).
+A local, offline, zero-dependency linter for LLM prompts and agent instructions such as `CLAUDE.md`, `AGENTS.md`, and `.cursorrules`.
 
-As software engineering teams adopt AI coding assistants, agent configuration files expand into contradictory, repetitive documents that exhaust token budgets and degrade model adherence. `prompt-lint` enforces clean, deterministic standards on prompt files using explainable static rules with zero runtime dependencies.
+```text
+$ node bin/prompt-lint.js --no-color test/fixtures/dirty/bloated.md
 
-[Türkçe Dokümantasyon](README.tr.md)
+test/fixtures/dirty/bloated.md (~211 tokens, 107 words)
+  3:1    warning  Heading depth (5) exceeds recommended maximum depth of 4. Flatten hierarchy to improve LLM instruction retrieval.  PL011
+  5:1    warning  Excessive ALL-CAPS text detected ("DO NOT EVER FORGET TO FOLLOW INSTRUCTIONS PROMP..."). Models do not require shouting; use precise phrasing instead.  PL005
+  8:1    warning  Line is duplicate or near-duplicate (80% similarity) of line 7: "Always use TypeScript for all files in this rep...".  PL002
+  8:1    error    Conflicting directive on line 8 ("Never use TypeScript for all files in this repository") contradicts line 7 ("Always use TypeScript for all files in this repository").  PL003
+  10:8   warning  Vague directive "be careful" lacks actionable criteria. Replace with testable constraints or explicit rules.  PL004
+  10:23  warning  Vague directive "do your best" lacks actionable criteria. Replace with testable constraints or explicit rules.  PL004
+  12:42  warning  Excessive emphasis marker "!!!" detected. Multiple punctuation marks do not improve model adherence.  PL006
+  16:36  error    Unresolved template placeholder "{{user_token}}" detected. Replace with actual value before deployment.  PL007
+  17:10  error    Unresolved placeholder tag "<TODO: finish docs>" detected.  PL007
+  19:10  error    Referenced relative file "./non-existent-documentation-file.md" does not exist on disk.  PL008
+  25:1   warning  Line is duplicate or near-duplicate (100% similarity) of line 24: "This is duplicate instruction content that repe...".  PL002
 
----
-
-## Features
-
-- Zero runtime dependencies: Built strictly with native Node.js standard libraries.
-- High-performance token estimator: Deterministic subword, unicode, and whitespace heuristics approximating BPE tokenizers without external weights.
-- 12 explainable static analysis rules covering token budgets, contradictions, shouting, placeholders, broken relative links, and exposed secrets.
-- Multi-format output: Stylish terminal reporter with ANSI colors and `NO_COLOR` support, machine-readable JSON, and OASIS SARIF v2.1.0 for GitHub Code Scanning.
-- Native configuration via `.promptlintrc.json` with severity controls and rule-level options.
-- Programmatic API for integration into custom build chains and test pipelines.
-
----
+✖ 11 problems (4 errors, 7 warnings)
+```
 
 ## Installation
 
-`prompt-lint` requires Node.js version 20.0.0 or higher.
+Requires Node.js 20 or newer. Install in your project:
 
-Install globally:
-```bash
-npm install -g prompt-lint
-```
-
-Or run directly with `npx`:
-```bash
-npx prompt-lint
-```
-
-Or install as a development dependency:
 ```bash
 npm install --save-dev prompt-lint
 ```
 
----
+Use `npx prompt-lint` after installation. The source-checkout commands below use `node bin/prompt-lint.js`; in another project, replace that prefix with `npx prompt-lint`.
 
-## CLI Usage
+## Usage
 
-### Automatic Discovery
-When invoked without file arguments, `prompt-lint` recursively discovers standard prompt files in your repository (`CLAUDE.md`, `AGENTS.md`, `.cursorrules`, `.cursor/rules/*.mdc`, `**/*.prompt`, `**/*.prompt.md`, `**/system*.md`, `**/system*.txt`):
+### CLI
 
-```bash
-prompt-lint
-```
-
-### Explicit Targets
-You can specify explicit files or directory targets:
+With no targets, the linter discovers instruction and prompt files recursively. Explicit file arguments are included even when ignored during discovery.
 
 ```bash
-prompt-lint CLAUDE.md AGENTS.md
-prompt-lint "prompts/**/*.md"
+node bin/prompt-lint.js
+node bin/prompt-lint.js CLAUDE.md AGENTS.md
+node bin/prompt-lint.js --format json CLAUDE.md
+node bin/prompt-lint.js --format sarif CLAUDE.md
 ```
 
-### Standard Input
-`prompt-lint` can analyze prompt templates piped from standard input:
+Output formats are stylish terminal text, JSON, and SARIF v2.1.0. Colors follow TTY detection, `NO_COLOR`, and `FORCE_COLOR`; `--no-color` disables them explicitly.
+
+### Standard input
 
 ```bash
-cat system.prompt | prompt-lint --stdin --stdin-filename system.prompt
+printf 'Run unit tests.\n' | node bin/prompt-lint.js --stdin --stdin-filename system.prompt
 ```
 
-### Output Formats
+### API
 
-#### Terminal (Default)
-```bash
-prompt-lint
+The ESM API also exports configuration, scanning, rule, and formatter helpers. `lintText` uses built-in defaults unless a config is supplied; load file configuration with `loadConfig` when needed.
+
+```javascript
+import { lintText, lintFiles, estimateTokens } from "prompt-lint";
+
+console.log(estimateTokens("Run unit tests before committing."));
+const result = lintText("Always use TypeScript.\nNever use TypeScript.");
+console.log(result.diagnostics);
+const files = await lintFiles(["CLAUDE.md", "AGENTS.md"]);
 ```
 
-#### JSON Output
-```bash
-prompt-lint --format json > report.json
-```
-
-#### SARIF (GitHub Code Scanning)
-```bash
-prompt-lint --format sarif > results.sarif
-```
-
-### Command-Line Options
+### Options
 
 | Option | Short | Description | Default |
 | --- | --- | --- | --- |
@@ -98,17 +84,23 @@ prompt-lint --format sarif > results.sarif
 | `--version` | `-v` | Display package version | |
 | `--help` | `-h` | Display help screen | |
 
----
+## Exit codes
 
-## Rules Reference
+| Code | Meaning |
+| --- | --- |
+| `0` | No errors; warnings are within the configured limit (unlimited by default). |
+| `1` | Lint errors, warnings exceeding `--max-warnings`, or no files matching explicit targets. |
+| `2` | Usage or configuration error. |
 
-Every rule has a unique identifier (`PL001` to `PL012`), default severity, and configurable options.
+`--max-warnings 0` fails on any warning. `--quiet` hides warnings in the report; warning limits still apply.
+
+## Rules
 
 | Rule ID | Name | Category | Default Severity | Description |
 | --- | --- | --- | --- | --- |
 | `PL001` | `token-budget` | Budget | `warning` | Flags instruction files whose estimated token count exceeds the configured budget. |
 | `PL002` | `duplicate-content` | Redundancy | `warning` | Detects duplicate or near-duplicate lines using normalized shingles and Jaccard similarity. |
-| `PL003` | `contradictory-directives` | Logic | `error` | Flags conflicting instructions (such as "always X" vs "never X") targeting the same subject. |
+| `PL003` | `contradictory-directives` | Logic | `error` | Flags conflicting instructions (such as "always X" vs "never X") with matching normalized objects and qualifier scopes. |
 | `PL004` | `vague-directive` | Clarity | `warning` | Identifies non-actionable directives like "be careful", "do your best", or "ensure high quality". |
 | `PL005` | `shouting-density` | Style | `warning` | Detects excessive consecutive ALL-CAPS words or shouting sentences. Excludes standard acronyms. |
 | `PL006` | `excessive-emphasis` | Style | `warning` | Detects repeated punctuation marks (`!!!`, `???`) or stacked markdown bold-italics formatting. |
@@ -119,120 +111,99 @@ Every rule has a unique identifier (`PL001` to `PL012`), default severity, and c
 | `PL011` | `excessive-heading-depth` | Style | `warning` | Flags markdown heading depths greater than 4 (`#####` and `######`) that fragment context. |
 | `PL012` | `list-item-verb` | Style | `off` | Enforces that list items begin with an active imperative verb. (Optional, disabled by default). |
 
----
+## Examples
+
+Compare [CLAUDE.bad.md](examples/CLAUDE.bad.md) with [CLAUDE.good.md](examples/CLAUDE.good.md), using the [example configuration](examples/.promptlintrc.json). The first command exits 1; the second exits 0.
+
+```bash
+node bin/prompt-lint.js --config examples/.promptlintrc.json examples/CLAUDE.bad.md
+node bin/prompt-lint.js --config examples/.promptlintrc.json examples/CLAUDE.good.md
+```
+
+```text
+$ node bin/prompt-lint.js --no-color --config examples/.promptlintrc.json examples/CLAUDE.bad.md
+
+examples/CLAUDE.bad.md (~30 tokens, 10 words)
+  4:1   error    Conflicting directive on line 4 ("Never use TypeScript") contradicts line 3 ("Always use TypeScript").  PL003
+  6:1   warning  Vague directive "Be careful" lacks actionable criteria. Replace with testable constraints or explicit rules.  PL004
+  6:11  warning  Excessive emphasis marker "!!!" detected. Multiple punctuation marks do not improve model adherence.  PL006
+
+✖ 3 problems (1 error, 2 warnings)
+```
 
 ## Configuration
 
-`prompt-lint` automatically searches for a `.promptlintrc.json` file in the current working directory or a `"promptlint"` property in `package.json`.
-
-Example `.promptlintrc.json`:
+Configuration is read from `.promptlintrc.json`, `.promptlintrc`, or the `promptlint` field of `package.json` in the working directory, in that order. Use `--config` for an explicit file.
 
 ```json
 {
-  "budget": {
-    "maxTokens": 2000
-  },
-  "rules": {
-    "PL001": "warning",
-    "PL002": "warning",
-    "PL003": "error",
-    "PL004": "warning",
-    "PL005": "warning",
-    "PL006": "warning",
-    "PL007": "error",
-    "PL008": "error",
-    "PL009": "error",
-    "PL010": "warning",
-    "PL011": "warning",
-    "PL012": "off"
-  },
-  "options": {
-    "PL001": {
-      "maxTokens": 2500
-    },
-    "PL002": {
-      "threshold": 0.80,
-      "minWords": 4
-    },
-    "PL010": {
-      "maxLineLength": 500,
-      "maxParagraphWords": 250
-    }
-  },
-  "ignore": [
-    "node_modules/**",
-    ".git/**",
-    "dist/**",
-    "coverage/**"
-  ]
+  "$schema": "https://raw.githubusercontent.com/YusufBeratZengin/prompt-lint/main/schema.json",
+  "budget": { "maxTokens": 2000 },
+  "rules": { "PL003": "error", "PL012": "off" },
+  "options": { "PL002": { "threshold": 0.8, "minWords": 4 } },
+  "ignore": ["generated/**"]
 }
 ```
 
----
+[JSON Schema](schema.json) supports editor validation. Unknown top-level keys, unknown rule IDs, and invalid severities fail with exit code 2 and name the configuration file and offending key. Rule IDs and severity strings are case-insensitive. Severities are `off`, `info`, `warning`, and `error`; legacy aliases `0`/`false`, `1`, and `2`/`true` mean off, warning, and error. Ignore patterns extend the defaults.
 
-## Programmatic API
+## How it works
 
-`prompt-lint` exposes a clean ESM programmatic API for integration into Node.js workflows.
+The linter parses Markdown lines, estimates token usage, runs twelve deterministic static rules, and formats diagnostics. Rules have no network calls. PL003 compares opposing English directives only when normalized objects and qualifier tails match, including two empty tails; differing scopes are left unreported. Its legacy `threshold` option remains accepted but no longer changes this exact-match heuristic.
 
-```javascript
-import { lintFile, lintFiles, lintText, estimateTokens } from "prompt-lint";
+## Limitations and privacy
 
-// Estimate tokens for a string
-const stats = estimateTokens("Always format files with Prettier.");
-console.log(`Tokens: ${stats.tokens}, Words: ${stats.words}`);
+Token counts are heuristic estimates, not a tokenizer. Accuracy varies with text and model; use the target model's tokenizer for exact budgets. Static rules can miss semantic contradictions or flag valid instructions. Language-based rules primarily recognize English.
 
-// Lint a raw text string
-const textResult = lintText("Never use TypeScript.\nAlways use TypeScript.");
-for (const diag of textResult.diagnostics) {
-  console.log(`[${diag.ruleId}] Line ${diag.line}: ${diag.message}`);
-}
+Analysis runs locally and does not upload prompts. Secret diagnostics mask the matched value, but reports can contain other prompt text and file paths. Review reports before sharing them.
 
-// Lint files on disk
-const fileResults = await lintFiles(["CLAUDE.md", "AGENTS.md"]);
+## Pre-commit and CI
+
+In a source checkout, place this script in `.git/hooks/pre-commit` and make it executable on POSIX systems. It checks instruction files in the working tree. In a consuming project, install the dev dependency above and use `npx --no-install prompt-lint --max-warnings 0` instead.
+
+```sh
+#!/bin/sh
+node bin/prompt-lint.js --max-warnings 0 || exit 1
 ```
 
----
-
-## CI / CD Integration
-
-### GitHub Actions Workflow
-
-Add the following step to upload SARIF results directly to GitHub Code Scanning:
+For a checkout of this repository, use this GitHub Action. In a consuming project, replace the final command with `npx --no-install prompt-lint --max-warnings 0` after adding the package to devDependencies.
 
 ```yaml
-name: Prompt Quality
-
-on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-
+name: Prompt quality
+on: [push, pull_request]
+permissions:
+  contents: read
 jobs:
-  lint-prompts:
+  lint:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: 20
-
-      - name: Run prompt-lint SARIF
-        run: npx prompt-lint --format sarif > results.sarif
-        continue-on-error: true
-
-      - name: Upload SARIF to GitHub Code Scanning
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: results.sarif
+          node-version: 24
+      - run: npm ci
+      - run: node bin/prompt-lint.js --max-warnings 0
 ```
 
----
+SARIF output can be passed to GitHub Code Scanning with its upload action and the required `security-events: write` permission.
+
+## Development
+
+From a source checkout:
+
+```bash
+npm ci
+npm run lint
+npm test
+npm pack --dry-run
+```
+
+Tests use `node:test` without network access. CI covers Node.js 20, 22, and 24 on Windows and Linux.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, rule development, commit style, and releasing. Report vulnerabilities privately as described in [SECURITY.md](SECURITY.md). Community participation follows the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## License
 
-MIT License. Copyright (c) 2026 Yusuf Berat Zengin.
-See [LICENSE](LICENSE) for full details.
+[MIT](LICENSE). Copyright (c) 2026 Yusuf Berat Zengin.

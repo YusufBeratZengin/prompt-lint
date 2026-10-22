@@ -1,0 +1,59 @@
+name: Bug report
+description: Report an incorrect diagnostic or CLI failure.
+title: "Bug: "
+labels: [bug]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: prompt-lint version
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Operating system and Node.js version
+    validations:
+      required: true
+  - type: input
+    id: rule
+    attributes:
+      label: Rule ID
+      description: Which rule is affected? Use CLI if this is a command-line failure.
+    validations:
+      required: true
+  - type: textarea
+    id: snippet
+    attributes:
+      label: Minimal prompt snippet
+      description: Remove credentials and personal or confidential data before posting.
+      render: markdown
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Include the command and relevant configuration.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior and logs
+      description: Paste the output with sensitive information removed.
+    validations:
+      required: true
+  - type: checkboxes
+    id: search
+    attributes:
+      label: Existing issues
+      options:
+        - label: I searched existing issues.
+          required: true

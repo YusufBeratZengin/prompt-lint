@@ -5,15 +5,15 @@ import { calculateEntropy, maskSecret } from "../utils/text.js";
  */
 
 const KNOWN_SECRET_PATTERNS = [
-  // OpenAI API Key
-  {
-    name: "OpenAI API key",
-    regex: /\bsk-(?:proj-|live-)?[a-zA-Z0-9_-]{24,}\b/g
-  },
-  // Anthropic API Key
+  // Specific providers precede broader patterns; overlapping spans are skipped.
   {
     name: "Anthropic API key",
     regex: /\bsk-ant-[a-zA-Z0-9_-]{24,}\b/g
+  },
+  // OpenAI API Key (broader sk- prefix)
+  {
+    name: "OpenAI API key",
+    regex: /\bsk-(?:proj-|live-)?[a-zA-Z0-9_-]{24,}\b/g
   },
   // GitHub Personal Access Token
   {
@@ -73,6 +73,9 @@ export default {
         continue;
       }
 
+      const matchedSpans = [];
+      const overlaps = (start, end) => matchedSpans.some(span => start < span.end && end > span.start);
+
       // Check known provider secret patterns
       for (const pattern of KNOWN_SECRET_PATTERNS) {
         let match;
@@ -80,10 +83,11 @@ export default {
 
         while ((match = regex.exec(lineInfo.raw)) !== null) {
           const secretStr = match[0];
-          if (isDummySecret(secretStr)) {
+          if (isDummySecret(secretStr) || overlaps(match.index, match.index + secretStr.length)) {
             continue;
           }
 
+          matchedSpans.push({ start: match.index, end: match.index + secretStr.length });
           diagnostics.push({
             ruleId: "PL009",
             severity: context.severity || "error",
@@ -107,15 +111,15 @@ export default {
         }
 
         // Check if already matched
-        const alreadyFlagged = diagnostics.some(
-          d => d.line === lineInfo.lineNumber && d.snippet.includes(maskSecret(secretVal))
-        );
+        const start = genericMatch.index + genericMatch[0].indexOf(secretVal);
+        const alreadyFlagged = overlaps(start, start + secretVal.length);
         if (alreadyFlagged) {
           continue;
         }
 
         const entropy = calculateEntropy(secretVal);
         if (entropy >= 3.8) {
+          matchedSpans.push({ start, end: start + secretVal.length });
           diagnostics.push({
             ruleId: "PL009",
             severity: context.severity || "error",

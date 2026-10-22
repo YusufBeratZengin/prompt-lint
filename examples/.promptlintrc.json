@@ -1,0 +1,10 @@
+{
+  "$schema": "https://raw.githubusercontent.com/YusufBeratZengin/prompt-lint/main/schema.json",
+  "budget": {
+    "maxTokens": 2000
+  },
+  "rules": {
+    "PL003": "error",
+    "PL004": "warning"
+  }
+}

@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { resolve, dirname } from "node:path";
+import { resolve } from "node:path";
 import { existsSync } from "node:fs";
 
 /**
@@ -54,6 +54,52 @@ export const DEFAULT_CONFIG = {
 };
 
 const VALID_SEVERITIES = new Set(["off", "info", "warning", "error"]);
+
+/** Validate file/CLI input while keeping the programmatic merge API permissive. */
+export function validateConfig(config, source = "configuration") {
+  const fail = (key, allowed) => {
+    throw new Error(`${source}: invalid key/value "${key}". Allowed values: ${allowed}.`);
+  };
+  const isObject = value => value !== null && typeof value === "object" && !Array.isArray(value);
+  const topKeys = ["$schema", "budget", "rules", "options", "ignore"];
+  const ruleIds = Object.keys(DEFAULT_CONFIG.rules);
+  if (!isObject(config)) fail("<root>", "a JSON object");
+  for (const key of Object.keys(config)) {
+    if (!topKeys.includes(key)) fail(key, topKeys.join(", "));
+  }
+  if (config.$schema !== undefined && typeof config.$schema !== "string") {
+    fail("$schema", "a schema URL string");
+  }
+  for (const section of ["rules", "options"]) {
+    if (config[section] === undefined) continue;
+    if (!isObject(config[section])) fail(section, "an object keyed by rule ID");
+    for (const [id, value] of Object.entries(config[section])) {
+      if (!ruleIds.includes(id.toUpperCase())) fail(`${section}.${id}`, ruleIds.join(", "));
+      if (section === "rules") {
+        if (!(typeof value === "string" && VALID_SEVERITIES.has(value.toLowerCase())) &&
+            ![0, 1, 2, true, false].includes(value)) {
+          fail(`rules.${id}`, "off, info, warning, error, 0, 1, 2, true, false");
+        }
+      } else if (!isObject(value)) {
+        fail(`options.${id}`, "a rule options object");
+      }
+    }
+  }
+  if (config.budget !== undefined) {
+    if (!isObject(config.budget)) fail("budget", "an object with maxTokens");
+    for (const key of Object.keys(config.budget)) {
+      if (key !== "maxTokens") fail(`budget.${key}`, "maxTokens");
+    }
+    if (config.budget.maxTokens !== undefined &&
+        (typeof config.budget.maxTokens !== "number" || !Number.isFinite(config.budget.maxTokens) || config.budget.maxTokens <= 0)) {
+      fail("budget.maxTokens", "a positive finite number");
+    }
+  }
+  if (config.ignore !== undefined &&
+      (!Array.isArray(config.ignore) || !config.ignore.every(pattern => typeof pattern === "string"))) {
+    fail("ignore", "an array of glob strings");
+  }
+}
 
 /**
  * Validates and normalizes rule severity.
@@ -112,9 +158,10 @@ export async function loadConfig(explicitPath, cwd = process.cwd()) {
     const rawContent = await readFile(resolvedPath, "utf-8");
     const parsed = JSON.parse(rawContent);
     const userConfig = resolvedPath.endsWith("package.json")
-      ? parsed.promptlint || {}
+      ? (parsed.promptlint === undefined ? {} : parsed.promptlint)
       : parsed;
 
+    validateConfig(userConfig, resolvedPath);
     const merged = mergeConfig(DEFAULT_CONFIG, userConfig);
     return { config: merged, configPath: resolvedPath };
   } catch (err) {

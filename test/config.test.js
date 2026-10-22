@@ -1,7 +1,42 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { resolve } from "node:path";
-import { DEFAULT_CONFIG, mergeConfig, normalizeSeverity, loadConfig } from "../src/config.js";
+import { DEFAULT_CONFIG, mergeConfig, normalizeSeverity, loadConfig, validateConfig } from "../src/config.js";
+import { mkdtemp, writeFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+test("config: accepts schema, case-insensitive rule IDs, and legacy severity aliases", () => {
+  assert.doesNotThrow(() => validateConfig({
+    $schema: "https://raw.githubusercontent.com/YusufBeratZengin/prompt-lint/main/schema.json",
+    rules: { pl001: "ERROR", PL002: 1, PL003: true, PL004: false, PL005: 0, PL006: 2 }
+  }));
+});
+
+for (const [config, key] of [
+  [null, "<root>"], [[], "<root>"], [{ rules: [] }, "rules"],
+  [{ options: { PL999: {} } }, "options.PL999"],
+  [{ options: { PL001: [] } }, "options.PL001"],
+  [{ budget: { maxTokens: -1 } }, "budget.maxTokens"],
+  [{ budget: { maxToken: 100 } }, "budget.maxToken"],
+  [{ ignore: "dist/**" }, "ignore"], [{ ignore: [42] }, "ignore"],
+  [{ $schema: false }, "$schema"]
+]) {
+  test(`config: rejects invalid shape at ${key}`, () => {
+    assert.throws(() => validateConfig(config, "invalid.json"), err =>
+      err.message.includes("invalid.json") && err.message.includes(key) && err.message.includes("Allowed values"));
+  });
+}
+
+test("config: package.json validates only the promptlint field", async t => {
+  const dir = await mkdtemp(join(tmpdir(), "prompt-lint-package-"));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const file = join(dir, "package.json");
+  await writeFile(file, JSON.stringify({ name: "config-fixture", promptlint: { rules: { pl001: 2 } } }));
+  assert.equal((await loadConfig(undefined, dir)).config.rules.PL001, "error");
+  await writeFile(file, JSON.stringify({ promptlint: { rules: { PL999: "error" } } }));
+  await assert.rejects(loadConfig(undefined, dir), /rules.PL999/);
+});
 
 test("config: normalizeSeverity maps valid and fallback severities", () => {
   assert.equal(normalizeSeverity("error"), "error");

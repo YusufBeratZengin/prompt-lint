@@ -2,6 +2,24 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { lintText } from "../../src/linter.js";
 
+for (const [provider, prefix] of [["Anthropic", "sk-" + "ant-" + "api03-"], ["OpenAI", "sk-"]]) {
+  test(`PL009: exactly one diagnostic for ${provider} key span`, () => {
+    const fakeKey = prefix + "ab12CD34".repeat(5);
+    const diagnostics = lintText(`api_key = "${fakeKey}"`).diagnostics.filter(d => d.ruleId === "PL009");
+    assert.equal(diagnostics.length, 1);
+    assert.match(diagnostics[0].message, new RegExp(provider));
+    assert.equal(diagnostics[0].column, 12);
+    assert.equal(diagnostics[0].endColumn, 12 + fakeKey.length);
+  });
+}
+
+test("PL009: distinct spans on the same line are retained", () => {
+  const fakeKey = "sk-" + "ab12CD34".repeat(5);
+  const diagnostics = lintText(`${fakeKey} ${fakeKey}`).diagnostics.filter(d => d.ruleId === "PL009");
+  assert.equal(diagnostics.length, 2);
+  assert.notEqual(diagnostics[0].column, diagnostics[1].column);
+});
+
 test("PL009: detects synthetic exposed OpenAI API key and masks it", () => {
   // Use synthetic key pattern
   const fakeKey = "sk-" + "proj-" + "m9k8j7h6g5f4d3s2a1q0w9e8r7t6y5u4i3o2p1";
