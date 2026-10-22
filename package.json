@@ -1,0 +1,47 @@
+{
+  "name": "prompt-lint",
+  "version": "0.1.0",
+  "description": "A linter for LLM prompt and agent instruction files (CLAUDE.md, AGENTS.md, .cursorrules, system prompts)",
+  "type": "module",
+  "bin": {
+    "prompt-lint": "./bin/prompt-lint.js"
+  },
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node --test",
+    "lint": "node ./bin/prompt-lint.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/YusufBeratZengin/prompt-lint.git"
+  },
+  "keywords": [
+    "prompt",
+    "prompt-engineering",
+    "linter",
+    "llm",
+    "agents",
+    "claude-md",
+    "cursorrules",
+    "system-prompts",
+    "sarif"
+  ],
+  "author": "Yusuf Berat Zengin",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/YusufBeratZengin/prompt-lint/issues"
+  },
+  "homepage": "https://github.com/YusufBeratZengin/prompt-lint#readme",
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

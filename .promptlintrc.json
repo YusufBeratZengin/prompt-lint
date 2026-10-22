@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json.schemastore.org/eslintrc.json",
+  "budget": {
+    "maxTokens": 2000
+  },
+  "rules": {
+    "PL001": "warning",
+    "PL002": "warning",
+    "PL003": "error",
+    "PL004": "warning",
+    "PL005": "warning",
+    "PL006": "warning",
+    "PL007": "error",
+    "PL008": "error",
+    "PL009": "error",
+    "PL010": "warning",
+    "PL011": "warning",
+    "PL012": "off"
+  },
+  "options": {
+    "PL001": {
+      "maxTokens": 2000
+    },
+    "PL002": {
+      "threshold": 0.8
+    },
+    "PL010": {
+      "maxLineLength": 500,
+      "maxParagraphWords": 250
+    }
+  },
+  "ignore": [
+    "node_modules/**",
+    ".git/**",
+    "dist/**",
+    "coverage/**",
+    "test/fixtures/**"
+  ]
+}

@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Test and Coverage
+coverage/
+.nyc_output/
+
+# Build artifacts
+dist/
+build/
+
+# Operating System Files
+.DS_Store
+Thumbs.db
+
+# IDE and Editor Directories
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment and Local Secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Logs
+logs/
+*.log
+npm-debug.log*
