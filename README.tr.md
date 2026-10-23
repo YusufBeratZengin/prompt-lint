@@ -8,7 +8,7 @@ LLM prompt'larını ve `CLAUDE.md`, `AGENTS.md`, `.cursorrules` gibi ajan talima
 
 ## Neden prompt-lint?
 
-- API anahtarı, ağ isteği veya çalışma zamanı bağımlılığı gerektirmeden on iki deterministik kuralı yerel olarak çalıştırır.
+- API anahtarı, ağ isteği veya çalışma zamanı bağımlılığı gerektirmeden on üç deterministik kuralı yerel olarak çalıştırır.
 - Çelişkileri, tekrarları, unutulmuş şablon değişkenlerini, bozuk bağlantıları ve açıkta kalan sırları tek taramada bulur.
 - Aynı denetimleri terminalde, ESM kodunda ve CI ortamında kullanabilir; JSON veya SARIF çıktısı alabilirsiniz.
 
@@ -135,6 +135,9 @@ const files = await lintFiles(["CLAUDE.md", "AGENTS.md"]);
 | `PL010` | `long-paragraph` | Açıklık | `warning` | Aşırı uzun satırları veya paragraf sonu olmadan devam eden yoğun metin bloklarını tespit eder. |
 | `PL011` | `excessive-heading-depth` | Biçim | `warning` | Başlık derinliği 4'ten büyük olan (`#####` ve `######`) parçalanmış başlıkları tespit eder. |
 | `PL012` | `list-item-verb` | Biçim | `off` | Liste maddelerinin etken bir eylem fiiliyle başlamasını denetler. (İsteğe bağlı, varsayılan kapalı). |
+| `PL013` | `section-token-budget` | Bütçe | `warning` | Tahmini 1.000 token sınırını aşan bölümleri bildirir; eşik `options.PL013.maxTokens` ile ayarlanır. |
+
+Her kuralın gerekçesi, kötü/iyi örnekleri, seçenekleri ve sınırlamaları [tam kural başvurusunda](docs/rules.md) bulunur. PL003 çelişkili talimatları zaten denetler. PL008 eksik dosya ve dizin referanslarını; Windows yollarını ve ters tırnak içindeki tek dosya adlarını da denetler.
 
 ## Örnekler
 
@@ -165,7 +168,10 @@ examples/CLAUDE.bad.md (~30 tokens, 10 words)
   "$schema": "https://raw.githubusercontent.com/YusufBeratZengin/prompt-lint/main/schema.json",
   "budget": { "maxTokens": 2000 },
   "rules": { "PL003": "error", "PL012": "off" },
-  "options": { "PL002": { "threshold": 0.8, "minWords": 4 } },
+  "options": {
+    "PL002": { "threshold": 0.8, "minWords": 4 },
+    "PL013": { "maxTokens": 1000 }
+  },
   "ignore": ["generated/**"]
 }
 ```
@@ -174,7 +180,7 @@ examples/CLAUDE.bad.md (~30 tokens, 10 words)
 
 ## Nasıl çalışır?
 
-Linter, Markdown satırlarını ayrıştırır, token sayısını tahmin eder, on iki deterministik kuralı çalıştırır ve bulguları raporlar. Kurallar ağ isteği yapmaz. PL003, karşıt İngilizce yönergelerin normalleştirilmiş nesneleri ve koşul ekleri aynıysa çelişki bildirir; iki yönergede de koşul bulunmaması da buna dahildir. Farklı koşulları raporlamaz. Eski `threshold` seçeneği kabul edilir ancak bu birebir eşleşme yöntemini artık etkilemez.
+Linter, Markdown satırlarını ayrıştırır, token sayısını tahmin eder, on üç deterministik kuralı çalıştırır ve bulguları raporlar. Kurallar ağ isteği yapmaz. PL003, karşıt İngilizce yönergelerin normalleştirilmiş nesneleri ve koşul ekleri aynıysa çelişki bildirir; iki yönergede de koşul bulunmaması da buna dahildir. Farklı koşulları raporlamaz. Eski `threshold` seçeneği kabul edilir ancak bu birebir eşleşme yöntemini artık etkilemez. PL013, her başlığın gövdesini herhangi bir derinlikteki sonraki başlığa kadar sayar; kod blokları da bütçeye dahildir. İlk başlıktan önceki metin ayrı bir bölümdür. Dosya bütçesi PL001'den bağımsızdır.
 
 ## Sık sorulan sorular ve sınırlamalar
 
@@ -194,16 +200,9 @@ Evet. [Hızlı başlangıç](#hızlı-başlangıç), kaynak kodu kullanır ve pa
 
 Demo dosyası bilerek lint hataları içerir. Kurulumu doğrulamak için temiz örneği kullanın. CI davranışı ve uyarı sınırları için [Çıkış kodları](#çıkış-kodları) bölümüne bakın.
 
-## Pre-commit ve CI
+## GitHub Action
 
-Kaynak kod deposunda bu betiği `.git/hooks/pre-commit` dosyasına koyun. POSIX sistemlerde çalıştırma izni verin. Betik, çalışma ağacındaki talimat dosyalarını denetler. Başka bir projede yukarıdaki geliştirme bağımlılığını kurup komutu `npx --no-install prompt-lint --max-warnings 0` olarak değiştirin.
-
-```sh
-#!/bin/sh
-node bin/prompt-lint.js --max-warnings 0 || exit 1
-```
-
-Bu deponun kaynak kodunu denetlemek için aşağıdaki GitHub Action kullanılabilir. Başka bir projede paketi devDependencies'e ekleyin ve son komutu `npx --no-install prompt-lint --max-warnings 0` olarak değiştirin.
+Deponuzu checkout ettikten sonra composite Action'ı doğrudan kaynak koddan kullanın. Node.js 22 kurulur; npm kurulumu gerekmez. Sürüm yayımlanmadan önce `@main` kullanılabilir; tekrarlanabilir derlemeler için incelenmiş bir commit SHA'sına sabitleyin. Action kaynak dosyalarınızı değiştirmez; raporlar runner'ın geçici dizinine yazılır.
 
 ```yaml
 name: Prompt quality
@@ -215,14 +214,81 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: YusufBeratZengin/prompt-lint@main
         with:
-          node-version: 24
-      - run: npm ci
-      - run: node bin/prompt-lint.js --max-warnings 0
+          paths: |
+            AGENTS.md
+            prompts/**/*.prompt.md
+          fail-on: warning
 ```
 
-SARIF raporunu GitHub Code Scanning'e yüklemek için ilgili upload action ve `security-events: write` izni kullanılabilir.
+| Girdi | Varsayılan | Anlamı |
+| --- | --- | --- |
+| `paths` | Boş | Checkout dizinine göre her satırda bir dosya, dizin veya glob. Boşsa otomatik tarama yapılır. Yol içindeki boşluklar korunur; kabuk tırnaklaması gerekmez. |
+| `config` | Boş | Checkout dizinine göre JSON yapılandırma yolu. Boşsa normal yapılandırma araması yapılır. |
+| `format` | `stylish` | `stylish`, `json` veya `sarif`. |
+| `fail-on` | `error` | `error` hatalarda; `warning` uyarı veya hatalarda başarısız olur. `none` bulguları raporlayıp başarılı sayılır. |
+
+Yapılandırma, okunamayan dosya ve hedef bulma hataları `fail-on: none` seçildiğinde de başarısız olur. Çıktılar: `report` raporun tam yolu, `exit-code` ise ilk lint çıkış kodudur. Bulgular adımı başarısız kılsa da rapor kullanılabilir. Otomatik taramada dosya bulunmazsa boş bir yapılandırılmış rapor üretilir. Açıkça belirtilen hedeflerle hiçbir dosya eşleşmezse başarısız olur. Yollar kabukta çalıştırılmaz, veri olarak geçirilir. [Öz sınama iş akışı](.github/workflows/action-test.yml), Linux ve Windows'u kapsar ve SARIF'i OASIS şemasına göre doğrular.
+
+## GitHub code scanning (SARIF)
+
+Bu iş akışını code scanning etkin olan depolarda kullanın. Yükleme adımına `security-events: write` izni verir; lint bulguları önceki adımı başarısız kılsa bile raporu yükler:
+
+```yaml
+name: Prompt code scanning
+on: [push, pull_request]
+permissions:
+  contents: read
+  security-events: write
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: YusufBeratZengin/prompt-lint@main
+        id: lint
+        with:
+          format: sarif
+          fail-on: error
+      - uses: github/codeql-action/upload-sarif@v4
+        if: ${{ !cancelled() && steps.lint.outputs.report != '' }}
+        with:
+          sarif_file: ${{ steps.lint.outputs.report }}
+          category: prompt-lint
+```
+
+SARIF v2.1.0 çıktısı depo köküne göre URI kodlanmış yolları, açıkça tanımlanmış kaynak kökünü, eşleşen kural indekslerini ve UTF-16 sütunlarını kullanır. Yükleme action'ı checkout edilmiş kaynaklardan parmak izi üretebilir. [GitHub SARIF gereksinimlerine](https://docs.github.com/en/code-security/reference/code-scanning/sarif-files/sarif-support) bakın. Depo izinleri ve fork pull request politikaları yüklemeyi sınırlayabilir. Analiz yerelde kalır; rapor yüklemek tanı metinlerini ve yolları GitHub'a gönderir. Talimatlarda özel veri varsa yerel raporları kullanın.
+
+## pre-commit framework
+
+Projenizin `.pre-commit-config.yaml` dosyasına aşağıdakini ekleyin. Framework, hook'u `language: node` ile kaynak koddan kurar; yayımlanmış npm paketi gerekmez. Sürüm yayımlanmadan önce `rev: main` kullanılabilir; tekrarlanabilirlik için incelenmiş bir commit SHA'sına sabitleyin.
+
+```yaml
+repos:
+  - repo: https://github.com/YusufBeratZengin/prompt-lint
+    rev: main
+    hooks:
+      - id: prompt-lint
+```
+
+[pre-commit](https://pre-commit.com/) kurulu olduğunda çalıştırın:
+
+```bash
+pre-commit install
+pre-commit run prompt-lint --all-files
+```
+
+Hook, Cursor `.mdc` kuralları dahil değişen talimat/prompt dosyalarını denetler; uyarı veya hatalarda başarısız olur. Node.js 20 veya üzeri gerekir; pre-commit Node ortamını yönetir, `language_version` ile belirli bir uyumlu sürüm seçilebilir. Yapılandırma projenizden okunur. Ek dosya adlarını denetlemek için hook'un `files` regex'ini değiştirin. Uyarılara izin vermek için `args: [--]`; yapılandırma seçmek için `args: [--config, .promptlintrc.json, --max-warnings, '0', --]` kullanın.
+
+### Düz Git hook'u
+
+Kaynak kod deposunda bu betiği `.git/hooks/pre-commit` dosyasına koyun. POSIX sistemlerde çalıştırma izni verin. Betik, çalışma ağacındaki talimat dosyalarını denetler. Başka bir projede yukarıdaki geliştirme bağımlılığını kurup komutu `npx --no-install prompt-lint --max-warnings 0` olarak değiştirin.
+
+```sh
+#!/bin/sh
+node bin/prompt-lint.js --max-warnings 0 || exit 1
+```
 
 ## Geliştirme
 

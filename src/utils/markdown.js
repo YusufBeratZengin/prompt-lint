@@ -120,14 +120,18 @@ export function parseMarkdownLines(content) {
  */
 export function extractFileReferences(text) {
   const results = [];
+  const linkRanges = [];
 
   // 1. Markdown links: [text](target)
   const linkRegex = /\[([^\]]*)\]\(([^)]+)\)/g;
   let match;
   while ((match = linkRegex.exec(text)) !== null) {
+    linkRanges.push([match.index, linkRegex.lastIndex]);
     const rawTarget = match[2].trim();
     // Strip optional title e.g. "path/to/file 'title'"
-    const cleanTarget = rawTarget.split(/\s+/)[0].replace(/^<|>$/g, "");
+    const cleanTarget = rawTarget.startsWith("<")
+      ? rawTarget.slice(1, rawTarget.indexOf(">") === -1 ? undefined : rawTarget.indexOf(">"))
+      : rawTarget.split(/\s+/)[0];
     results.push({
       path: cleanTarget,
       column: match.index + 1,
@@ -141,6 +145,7 @@ export function extractFileReferences(text) {
   while ((match = backtickRegex.exec(text)) !== null) {
     const candidate = match[1].trim();
     // Avoid re-matching something already inside markdown link
+    if (linkRanges.some(([start, end]) => match.index >= start && match.index < end)) continue;
     const col = match.index + 1;
     results.push({
       path: candidate,

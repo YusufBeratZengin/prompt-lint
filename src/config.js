@@ -21,7 +21,8 @@ export const DEFAULT_CONFIG = {
     PL009: "error",
     PL010: "warning",
     PL011: "warning",
-    PL012: "off"
+    PL012: "off",
+    PL013: "warning"
   },
   options: {
     PL001: {
@@ -38,6 +39,9 @@ export const DEFAULT_CONFIG = {
       uppercaseThreshold: 0.4,
       minWords: 5,
       consecutiveLimit: 3
+    },
+    PL013: {
+      maxTokens: 1000
     },
     PL010: {
       maxLineLength: 500,
@@ -82,6 +86,10 @@ export function validateConfig(config, source = "configuration") {
         }
       } else if (!isObject(value)) {
         fail(`options.${id}`, "a rule options object");
+      }
+      if (section === "options" && id.toUpperCase() === "PL013" && value.maxTokens !== undefined &&
+          (typeof value.maxTokens !== "number" || !Number.isFinite(value.maxTokens) || value.maxTokens <= 0)) {
+        fail(`options.${id}.maxTokens`, "a positive finite number");
       }
     }
   }

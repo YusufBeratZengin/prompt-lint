@@ -2,6 +2,20 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { lintText } from "../../src/linter.js";
 
+test("PL003: detects opposing directives across sections with source locations", () => {
+  const diagnostics = lintText("# Build\nAlways run tests.\n# Release\nNever run tests.")
+    .diagnostics.filter(d => d.ruleId === "PL003");
+  assert.equal(diagnostics.length, 1);
+  assert.equal(diagnostics[0].line, 4);
+  assert.equal(diagnostics[0].column, 1);
+  assert.equal(diagnostics[0].severity, "error");
+});
+
+test("PL003 false-positive: ignores opposing directives in fenced examples", () => {
+  assert.equal(lintText("Always run tests.\n```md\nNever run tests.\n```")
+    .diagnostics.filter(d => d.ruleId === "PL003").length, 0);
+});
+
 for (const [positive, negative] of [
   ["Always run tests before committing.", "Never run tests in production."],
   ["Always use tabs in Makefiles.", "Never use tabs in Python files."],

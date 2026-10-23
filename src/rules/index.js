@@ -10,9 +10,10 @@ import pl009 from "./pl009-exposed-secret.js";
 import pl010 from "./pl010-long-paragraph.js";
 import pl011 from "./pl011-excessive-heading-depth.js";
 import pl012 from "./pl012-list-item-verb.js";
+import pl013 from "./pl013-section-token-budget.js";
 
 /**
- * All rules indexed by rule ID (PL001 - PL012)
+ * All rules indexed by rule ID (PL001 - PL013)
  */
 export const rules = {
   PL001: pl001,
@@ -26,7 +27,8 @@ export const rules = {
   PL009: pl009,
   PL010: pl010,
   PL011: pl011,
-  PL012: pl012
+  PL012: pl012,
+  PL013: pl013
 };
 
 export const ruleList = Object.values(rules);

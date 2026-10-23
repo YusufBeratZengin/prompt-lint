@@ -1,0 +1,119 @@
+name: Action and hook self-test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  action:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Clean fixture passes
+        uses: ./
+        with:
+          paths: test/fixtures/clean/CLAUDE.md
+          fail-on: warning
+      - name: Findings fail the action
+        id: dirty
+        continue-on-error: true
+        uses: ./
+        with:
+          paths: test/fixtures/dirty/contradictory.prompt
+          config: .promptlintrc.json
+          format: sarif
+      - name: Assert failure and retained report
+        shell: bash
+        env:
+          OUTCOME: ${{ steps.dirty.outcome }}
+          REPORT: ${{ steps.dirty.outputs.report }}
+          EXIT_CODE: ${{ steps.dirty.outputs.exit-code }}
+        run: |
+          test "$OUTCOME" = failure
+          test "$EXIT_CODE" = 1
+          test -s "$REPORT"
+      - name: Report-only mode preserves findings
+        id: report
+        uses: ./
+        with:
+          paths: |
+            test/fixtures/dirty/contradictory.prompt
+            test/fixtures/dirty/warning.prompt
+          format: sarif
+          fail-on: none
+      - name: Warning threshold fails
+        id: warning
+        continue-on-error: true
+        uses: ./
+        with:
+          paths: test/fixtures/dirty/warning.prompt
+          fail-on: warning
+      - name: Assert warning failure
+        shell: bash
+        env:
+          OUTCOME: ${{ steps.warning.outcome }}
+        run: test "$OUTCOME" = failure
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Validate SARIF against the official OASIS schema
+        shell: bash
+        env:
+          SARIF_REPORT: ${{ steps.report.outputs.report }}
+        run: |
+          python -m pip install jsonschema
+          curl --fail --silent --show-error --location https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json --output "$RUNNER_TEMP/sarif-schema.json"
+          python -c 'import json, jsonschema, os; from pathlib import Path; jsonschema.validate(json.loads(Path(os.environ["SARIF_REPORT"]).read_text(encoding="utf-8")), json.loads((Path(os.environ["RUNNER_TEMP"]) / "sarif-schema.json").read_text(encoding="utf-8")), format_checker=jsonschema.FormatChecker())'
+
+  sarif-upload:
+    if: github.event_name == 'push' && github.repository == 'YusufBeratZengin/prompt-lint'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+      - id: lint
+        uses: ./
+        with:
+          paths: test/fixtures/dirty/contradictory.prompt
+          format: sarif
+          fail-on: none
+      - name: Assert report contains repository-relative findings
+        env:
+          SARIF_REPORT: ${{ steps.lint.outputs.report }}
+        run: |
+          node --input-type=module -e 'import assert from "node:assert/strict"; import { readFileSync } from "node:fs"; const run = JSON.parse(readFileSync(process.env.SARIF_REPORT, "utf8")).runs[0]; assert.ok(run.results.some(result => result.ruleId === "PL003")); assert.ok(run.results.every(result => result.locations[0].physicalLocation.artifactLocation.uri === "test/fixtures/dirty/contradictory.prompt"));'
+      - uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: ${{ steps.lint.outputs.report }}
+          category: prompt-lint-action-self-test
+
+  pre-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - run: python -m pip install pre-commit
+      - run: pre-commit validate-manifest .pre-commit-hooks.yaml
+      - name: Install hook from this checkout and check clean input
+        run: pre-commit try-repo . prompt-lint --files test/fixtures/clean/CLAUDE.md
+      - name: Hook rejects warnings
+        shell: bash
+        run: |
+          if pre-commit try-repo . prompt-lint --files test/fixtures/dirty/warning.prompt; then
+            echo "Expected hook failure"
+            exit 1
+          fi

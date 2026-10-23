@@ -1,4 +1,29 @@
 import { ruleList } from "../rules/index.js";
+import { isAbsolute, relative, resolve, sep, win32 } from "node:path";
+import { pathToFileURL } from "node:url";
+
+const isWindowsPath = path => /^[A-Za-z]:[\\/]/.test(path) || /^[\\/]{2}[^\\/]/.test(path);
+
+function sourceRootUri(cwd) {
+  if (isWindowsPath(cwd)) {
+    const path = win32.resolve(cwd).replace(/\\/g, "/");
+    const encoded = path.split("/").map((part, index) =>
+      index === 0 && /^[A-Za-z]:$/.test(part) ? part : encodeURIComponent(part)
+    ).join("/").replace(/\/?$/, "/");
+    return `${path.startsWith("//") ? "file:" : "file:///"}${encoded}`;
+  }
+  return pathToFileURL(resolve(cwd) + sep).href;
+}
+
+function sourceUri(filePath, cwd) {
+  let path = filePath;
+  if (isWindowsPath(path)) {
+    path = win32.relative(cwd, path);
+  } else if (isAbsolute(path)) {
+    path = relative(cwd, path);
+  }
+  return path.replace(/\\/g, "/").replace(/^\.\//, "").split("/").map(encodeURIComponent).join("/");
+}
 
 /**
  * Maps prompt-lint severity to SARIF level ("error", "warning", "note", "none").
@@ -25,7 +50,7 @@ function toSarifLevel(severity) {
  * @param {Array<{ filePath: string, diagnostics: Array<any> }>} results
  * @returns {string}
  */
-export function formatSarif(results) {
+export function formatSarif(results, { cwd = process.cwd() } = {}) {
   const sarifRules = ruleList.map(rule => ({
     id: rule.meta.id,
     name: rule.meta.name,
@@ -43,13 +68,26 @@ export function formatSarif(results) {
   }));
 
   const sarifResults = [];
+  const indices = new Map(sarifRules.map((rule, index) => [rule.id, index]));
 
   for (const fileResult of results) {
-    const normalizedUri = fileResult.filePath.replace(/\\/g, "/");
+    const normalizedUri = sourceUri(fileResult.filePath, cwd);
 
     for (const diag of fileResult.diagnostics) {
+      if (!indices.has(diag.ruleId)) {
+        indices.set(diag.ruleId, sarifRules.length);
+        sarifRules.push({ id: diag.ruleId, shortDescription: { text: "File or analysis error" } });
+      }
+      const region = { startLine: diag.line || 1, startColumn: diag.column || 1 };
+      const endLine = diag.endLine || region.startLine;
+      const endColumn = diag.endColumn || region.startColumn;
+      if (endLine > region.startLine || (endLine === region.startLine && endColumn > region.startColumn)) {
+        region.endLine = endLine;
+        region.endColumn = endColumn;
+      }
       sarifResults.push({
         ruleId: diag.ruleId,
+        ruleIndex: indices.get(diag.ruleId),
         level: toSarifLevel(diag.severity),
         message: {
           text: diag.message
@@ -61,12 +99,7 @@ export function formatSarif(results) {
                 uri: normalizedUri,
                 uriBaseId: "%SRCROOT%"
               },
-              region: {
-                startLine: diag.line || 1,
-                startColumn: diag.column || 1,
-                endLine: diag.endLine || diag.line || 1,
-                endColumn: diag.endColumn || diag.column || 1
-              }
+              region
             }
           }
         ]
@@ -75,10 +108,14 @@ export function formatSarif(results) {
   }
 
   const sarifDocument = {
-    $schema: "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+    $schema: "https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json",
     version: "2.1.0",
     runs: [
       {
+        columnKind: "utf16CodeUnits",
+        originalUriBaseIds: {
+          "%SRCROOT%": { uri: sourceRootUri(cwd) }
+        },
         tool: {
           driver: {
             name: "prompt-lint",

@@ -11,7 +11,7 @@ export default {
     category: "redundancy",
     defaultSeverity: "warning",
     recommended: true,
-    docsUrl: "https://github.com/YusufBeratZengin/prompt-lint#pl002"
+    docsUrl: "https://github.com/YusufBeratZengin/prompt-lint/blob/main/docs/rules.md#pl002"
   },
 
   run(context) {

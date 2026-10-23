@@ -1,0 +1,8 @@
+- id: prompt-lint
+  name: prompt-lint
+  description: Check prompt and agent instruction files locally
+  entry: prompt-lint
+  language: node
+  types: [file]
+  files: '(^|/)(CLAUDE\.md|AGENTS\.md|\.cursorrules)$|(^|/)\.cursor/rules/.*\.mdc$|\.prompt(\.md)?$|(^|/)system[^/]*\.(md|txt)$'
+  args: [--max-warnings, '0', --]

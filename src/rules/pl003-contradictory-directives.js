@@ -35,7 +35,7 @@ export default {
     category: "logic",
     defaultSeverity: "error",
     recommended: true,
-    docsUrl: "https://github.com/YusufBeratZengin/prompt-lint#pl003"
+    docsUrl: "https://github.com/YusufBeratZengin/prompt-lint/blob/main/docs/rules.md#pl003"
   },
 
   run(context) {

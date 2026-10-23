@@ -26,7 +26,7 @@ export default {
     category: "clarity",
     defaultSeverity: "warning",
     recommended: true,
-    docsUrl: "https://github.com/YusufBeratZengin/prompt-lint#pl004"
+    docsUrl: "https://github.com/YusufBeratZengin/prompt-lint/blob/main/docs/rules.md#pl004"
   },
 
   run(context) {

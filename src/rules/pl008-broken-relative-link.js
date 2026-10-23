@@ -4,13 +4,18 @@ import { extractFileReferences } from "../utils/markdown.js";
 
 const FILE_EXT_REGEX = /\.(?:js|mjs|cjs|ts|tsx|jsx|json|md|txt|prompt|yml|yaml|toml|html|css|sh|py|rb|go|rs|c|cpp|h)$/i;
 
-function isLikelyFilePath(candidate) {
+function isLikelyFilePath(candidate, type) {
   if (!candidate || typeof candidate !== "string") return false;
-  const trimmed = candidate.trim();
+  // Markdown destinations may carry URL query/fragment suffixes. Inline code
+  // keeps question marks as glob syntax, but can still refer to a file anchor.
+  const trimmed = candidate.trim().split(type === "link" ? /[?#]/ : /#/)[0];
 
   // Exclude URLs, mailto, anchor fragments
   if (/^(?:https?:\/\/|ftp:\/\/|mailto:|data:|file:\/\/)/i.test(trimmed)) return false;
+  if (/^[a-z][a-z0-9+.-]*:/i.test(trimmed) && !/^[a-z]:[\\/]/i.test(trimmed)) return false;
   if (trimmed.startsWith("#")) return false;
+  // Path templates describe a pattern rather than an existing repository entry.
+  if (/[<>]|\{[^}]*\}/.test(trimmed)) return false;
 
   // Exclude glob patterns
   if (trimmed.includes("*") || trimmed.includes("?")) return false;
@@ -30,7 +35,7 @@ function isLikelyFilePath(candidate) {
   const startsWithRelative = trimmed.startsWith("./") || trimmed.startsWith("../") || trimmed.startsWith(".\\");
   const hasFileExt = FILE_EXT_REGEX.test(trimmed);
 
-  if (startsWithRelative || (hasSeparator && hasFileExt) || (hasSeparator && !trimmed.includes(" "))) {
+  if (type === "link" || hasFileExt || startsWithRelative || (hasSeparator && !trimmed.includes(" "))) {
     return true;
   }
 
@@ -48,7 +53,7 @@ export default {
     category: "integrity",
     defaultSeverity: "error",
     recommended: true,
-    docsUrl: "https://github.com/YusufBeratZengin/prompt-lint#pl008"
+    docsUrl: "https://github.com/YusufBeratZengin/prompt-lint/blob/main/docs/rules.md#pl008"
   },
 
   run(context) {
@@ -65,12 +70,17 @@ export default {
       const refs = extractFileReferences(lineInfo.raw);
 
       for (const ref of refs) {
-        if (!isLikelyFilePath(ref.path)) {
+        if (!isLikelyFilePath(ref.path, ref.type)) {
           continue;
         }
 
         // Clean query/hash if present (e.g. "path/to/file.md#L10")
-        const cleanPath = ref.path.split(/[?#]/)[0];
+        let cleanPath;
+        try {
+          cleanPath = decodeURIComponent(ref.path.split(/[?#]/)[0]).replace(/\\/g, "/");
+        } catch {
+          cleanPath = ref.path.split(/[?#]/)[0].replace(/\\/g, "/");
+        }
         if (!cleanPath) continue;
 
         // Try relative to file directory, then workspace cwd

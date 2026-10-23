@@ -19,7 +19,7 @@ export default {
     category: "style",
     defaultSeverity: "warning",
     recommended: true,
-    docsUrl: "https://github.com/YusufBeratZengin/prompt-lint#pl005"
+    docsUrl: "https://github.com/YusufBeratZengin/prompt-lint/blob/main/docs/rules.md#pl005"
   },
 
   run(context) {

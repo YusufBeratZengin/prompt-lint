@@ -62,7 +62,7 @@ export default {
     category: "security",
     defaultSeverity: "error",
     recommended: true,
-    docsUrl: "https://github.com/YusufBeratZengin/prompt-lint#pl009"
+    docsUrl: "https://github.com/YusufBeratZengin/prompt-lint/blob/main/docs/rules.md#pl009"
   },
 
   run(context) {

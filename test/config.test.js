@@ -6,6 +6,13 @@ import { mkdtemp, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+test("config: section budget accepts a positive threshold and rejects invalid thresholds", () => {
+  assert.doesNotThrow(() => validateConfig({ options: { pl013: { maxTokens: 750 } } }));
+  for (const maxTokens of [0, -1, Infinity, "750", null]) {
+    assert.throws(() => validateConfig({ options: { PL013: { maxTokens } } }), /options.PL013.maxTokens/);
+  }
+});
+
 test("config: accepts schema, case-insensitive rule IDs, and legacy severity aliases", () => {
   assert.doesNotThrow(() => validateConfig({
     $schema: "https://raw.githubusercontent.com/YusufBeratZengin/prompt-lint/main/schema.json",

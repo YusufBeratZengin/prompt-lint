@@ -23,7 +23,7 @@
       "type": "object",
       "additionalProperties": false,
       "patternProperties": {
-        "^[pP][lL](00[1-9]|01[0-2])$": {
+        "^[pP][lL](00[1-9]|01[0-3])$": {
           "$ref": "#/$defs/severity"
         }
       }
@@ -32,9 +32,18 @@
       "type": "object",
       "additionalProperties": false,
       "patternProperties": {
-        "^[pP][lL](00[1-9]|01[0-2])$": {
+        "^[pP][lL](00[1-9]|01[0-3])$": {
           "type": "object",
           "description": "Options passed to the selected rule."
+        },
+        "^[pP][lL]013$": {
+          "properties": {
+            "maxTokens": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "default": 1000
+            }
+          }
         }
       }
     },

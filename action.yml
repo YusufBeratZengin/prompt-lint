@@ -1,0 +1,40 @@
+name: prompt-lint
+description: Lint prompt and agent instruction files without installing npm packages
+author: YusufBeratZengin
+branding:
+  icon: check-circle
+  color: blue
+inputs:
+  paths:
+    description: Newline-separated files or globs, relative to the checked-out repository; empty means auto-discovery
+    default: ''
+  config:
+    description: JSON config path relative to the checked-out repository; empty means auto-detection
+    default: ''
+  format:
+    description: 'Report format: stylish, json, or sarif'
+    default: stylish
+  fail-on:
+    description: 'Failure threshold: error, warning (includes errors), or none (report only)'
+    default: error
+outputs:
+  report:
+    description: Absolute path to the report, available even when lint findings fail the step
+    value: ${{ steps.lint.outputs.report }}
+  exit-code:
+    description: CLI exit code before the fail-on policy is applied
+    value: ${{ steps.lint.outputs.exit-code }}
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+    - id: lint
+      shell: bash
+      env:
+        PROMPT_LINT_PATHS: ${{ inputs.paths }}
+        PROMPT_LINT_CONFIG: ${{ inputs.config }}
+        PROMPT_LINT_FORMAT: ${{ inputs.format }}
+        PROMPT_LINT_FAIL_ON: ${{ inputs.fail-on }}
+      run: node "$GITHUB_ACTION_PATH/scripts/run-action.mjs"

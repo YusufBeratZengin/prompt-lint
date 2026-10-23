@@ -8,7 +8,7 @@ A local, offline, zero-dependency linter for LLM prompts and agent instructions 
 
 ## Why prompt-lint?
 
-- Run twelve deterministic rules locally, with no API keys, network calls, or runtime dependencies.
+- Run thirteen deterministic rules locally, with no API keys, network calls, or runtime dependencies.
 - Catch contradictions, repeated instructions, unresolved placeholders, broken links, and exposed secrets in one pass.
 - Use the same checks in your terminal, ESM code, and CI with JSON or SARIF output.
 
@@ -135,6 +135,9 @@ const files = await lintFiles(["CLAUDE.md", "AGENTS.md"]);
 | `PL010` | `long-paragraph` | Clarity | `warning` | Flags lines exceeding character limits or dense paragraphs exceeding word limits without breaks. |
 | `PL011` | `excessive-heading-depth` | Style | `warning` | Flags markdown heading depths greater than 4 (`#####` and `######`) that fragment context. |
 | `PL012` | `list-item-verb` | Style | `off` | Enforces that list items begin with an active imperative verb. (Optional, disabled by default). |
+| `PL013` | `section-token-budget` | Budget | `warning` | Flags sections above 1,000 estimated tokens; configure `options.PL013.maxTokens`. |
+
+See the [complete rule reference](docs/rules.md) for why each rule matters, bad/good examples, options, and limitations. PL003 already checks contradictory instructions; PL008 checks dangling file and directory references, including Windows paths and bare filenames in backticks.
 
 ## Examples
 
@@ -165,7 +168,10 @@ Configuration is read from `.promptlintrc.json`, `.promptlintrc`, or the `prompt
   "$schema": "https://raw.githubusercontent.com/YusufBeratZengin/prompt-lint/main/schema.json",
   "budget": { "maxTokens": 2000 },
   "rules": { "PL003": "error", "PL012": "off" },
-  "options": { "PL002": { "threshold": 0.8, "minWords": 4 } },
+  "options": {
+    "PL002": { "threshold": 0.8, "minWords": 4 },
+    "PL013": { "maxTokens": 1000 }
+  },
   "ignore": ["generated/**"]
 }
 ```
@@ -174,7 +180,7 @@ Configuration is read from `.promptlintrc.json`, `.promptlintrc`, or the `prompt
 
 ## How it works
 
-The linter parses Markdown lines, estimates token usage, runs twelve deterministic static rules, and formats diagnostics. Rules have no network calls. PL003 compares opposing English directives only when normalized objects and qualifier tails match, including two empty tails; differing scopes are left unreported. Its legacy `threshold` option remains accepted but no longer changes this exact-match heuristic.
+The linter parses Markdown lines, estimates token usage, runs thirteen deterministic static rules, and formats diagnostics. Rules have no network calls. PL003 compares opposing English directives only when normalized objects and qualifier tails match, including two empty tails; differing scopes are left unreported. Its legacy `threshold` option remains accepted but no longer changes this exact-match heuristic. PL013 counts each heading's body up to the next heading of any depth, including fenced content; preamble text is a separate section. It is independent of the whole-file PL001 budget.
 
 ## FAQ and limitations
 
@@ -194,16 +200,9 @@ Yes. The [Quick start](#quick-start) uses the source checkout and needs no packa
 
 It intentionally includes lint errors. Use the clean fixture to verify setup. See [Exit codes](#exit-codes) for CI behavior and warning limits.
 
-## Pre-commit and CI
+## GitHub Action
 
-In a source checkout, place this script in `.git/hooks/pre-commit` and make it executable on POSIX systems. It checks instruction files in the working tree. In a consuming project, install the dev dependency above and use `npx --no-install prompt-lint --max-warnings 0` instead.
-
-```sh
-#!/bin/sh
-node bin/prompt-lint.js --max-warnings 0 || exit 1
-```
-
-For a checkout of this repository, use this GitHub Action. In a consuming project, replace the final command with `npx --no-install prompt-lint --max-warnings 0` after adding the package to devDependencies.
+After checking out your repository, use the composite Action directly from source. It sets up Node.js 22 and needs no npm installation. `@main` works before a release; pin a reviewed commit SHA for reproducible builds. The Action is read-only with respect to your source files; reports are written under the runner's temporary directory.
 
 ```yaml
 name: Prompt quality
@@ -215,14 +214,81 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: YusufBeratZengin/prompt-lint@main
         with:
-          node-version: 24
-      - run: npm ci
-      - run: node bin/prompt-lint.js --max-warnings 0
+          paths: |
+            AGENTS.md
+            prompts/**/*.prompt.md
+          fail-on: warning
 ```
 
-SARIF output can be passed to GitHub Code Scanning with its upload action and the required `security-events: write` permission.
+| Input | Default | Meaning |
+| --- | --- | --- |
+| `paths` | Empty | One file, directory, or glob per line, relative to the checkout. Empty uses automatic discovery. Spaces within a path are preserved; shell quoting is unnecessary. |
+| `config` | Empty | JSON config path relative to the checkout. Empty uses normal config discovery. |
+| `format` | `stylish` | `stylish`, `json`, or `sarif`. |
+| `fail-on` | `error` | `error` fails on errors; `warning` fails on warnings or errors; `none` reports findings without failing. |
+
+Configuration, unreadable-file, and target discovery failures still fail with `fail-on: none`. Outputs: `report` is the absolute report path; `exit-code` is the original lint exit code. Reports are available even when findings fail the step. Auto-discovery with no files produces an empty structured report. Explicit targets with no matches fail. Paths are passed as data without shell evaluation. The [self-test workflow](.github/workflows/action-test.yml) exercises Linux and Windows and validates SARIF against the OASIS schema.
+
+## GitHub code scanning (SARIF)
+
+Use this workflow in repositories where code scanning is enabled. It grants the upload step `security-events: write` and uploads the report even when lint findings fail the preceding step:
+
+```yaml
+name: Prompt code scanning
+on: [push, pull_request]
+permissions:
+  contents: read
+  security-events: write
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: YusufBeratZengin/prompt-lint@main
+        id: lint
+        with:
+          format: sarif
+          fail-on: error
+      - uses: github/codeql-action/upload-sarif@v4
+        if: ${{ !cancelled() && steps.lint.outputs.report != '' }}
+        with:
+          sarif_file: ${{ steps.lint.outputs.report }}
+          category: prompt-lint
+```
+
+SARIF v2.1.0 output uses repository-relative, URI-encoded paths, an explicit source root, matching rule indices, and UTF-16 columns. The upload action can generate fingerprints from the checked-out source. See [GitHub SARIF requirements](https://docs.github.com/en/code-security/reference/code-scanning/sarif-files/sarif-support). Repository permissions and fork pull-request policies can limit uploads. Analysis itself stays local; uploading a report sends diagnostic text and paths to GitHub. Use local reports when instructions contain private data.
+
+## pre-commit framework
+
+Add this to your project's `.pre-commit-config.yaml`. The framework installs the hook from source using `language: node`; no published npm package is required. `rev: main` is usable before a release; pin a reviewed commit SHA for reproducibility.
+
+```yaml
+repos:
+  - repo: https://github.com/YusufBeratZengin/prompt-lint
+    rev: main
+    hooks:
+      - id: prompt-lint
+```
+
+With [pre-commit](https://pre-commit.com/) installed, run:
+
+```bash
+pre-commit install
+pre-commit run prompt-lint --all-files
+```
+
+The hook checks changed instruction/prompt files, including Cursor `.mdc` rules, and fails on warnings or errors. Node.js 20 or newer is required; pre-commit manages its Node environment, and `language_version` can select a specific compatible version. Config is read from your project. To check additional filenames, override the hook's `files` regex. To allow warnings, set `args: [--]`; to select a config, use `args: [--config, .promptlintrc.json, --max-warnings, '0', --]`.
+
+### Plain Git hook
+
+In a source checkout, place this script in `.git/hooks/pre-commit` and make it executable on POSIX systems. It checks instruction files in the working tree. In a consuming project, install the dev dependency above and use `npx --no-install prompt-lint --max-warnings 0` instead.
+
+```sh
+#!/bin/sh
+node bin/prompt-lint.js --max-warnings 0 || exit 1
+```
 
 ## Development
 
