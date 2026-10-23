@@ -21,13 +21,17 @@ Keep `package-lock.json` in version control so CI and releases can use `npm ci` 
 
 2. Run the test suite:
    ```bash
-   node --test
+   npm test
    ```
 
 3. Run self-linting against project instructions:
    ```bash
    node bin/prompt-lint.js
    ```
+
+`npm test` prints line, branch, and function coverage using Node.js's native coverage support. Keep line coverage at or above 85% and add behavior-focused tests for uncovered branches when it drops below that target. There is no separate typecheck command for this JavaScript project.
+
+When CLI output changes, run `npm run demo` and review `docs/demo.svg`. CI runs `npm run demo:check` to catch stale images. Keep the terminal examples in both READMEs synchronized with the CLI output.
 
 ## Architecture Overview
 

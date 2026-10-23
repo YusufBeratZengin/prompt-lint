@@ -14,6 +14,7 @@
   "files": [
     "bin",
     "src",
+    "docs/demo.svg",
     "LICENSE",
     "README.md",
     "README.tr.md",
@@ -22,8 +23,10 @@
     "schema.json"
   ],
   "scripts": {
-    "test": "node --test",
+    "test": "node --test --experimental-test-coverage",
     "lint": "node ./bin/prompt-lint.js",
+    "demo": "node scripts/make-demo.mjs",
+    "demo:check": "node scripts/make-demo.mjs --check",
     "prepublishOnly": "npm test && node bin/prompt-lint.js"
   },
   "repository": {

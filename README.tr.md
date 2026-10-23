@@ -4,6 +4,29 @@
 
 LLM prompt'larını ve `CLAUDE.md`, `AGENTS.md`, `.cursorrules` gibi ajan talimatlarını yerel olarak, çevrim dışı ve ek bağımlılık olmadan denetleyen bir linter.
 
+![Gerçek prompt-lint çıktısını ve 11 sorunluk özeti gösteren terminal demosu](docs/demo.svg)
+
+## Neden prompt-lint?
+
+- API anahtarı, ağ isteği veya çalışma zamanı bağımlılığı gerektirmeden on iki deterministik kuralı yerel olarak çalıştırır.
+- Çelişkileri, tekrarları, unutulmuş şablon değişkenlerini, bozuk bağlantıları ve açıkta kalan sırları tek taramada bulur.
+- Aynı denetimleri terminalde, ESM kodunda ve CI ortamında kullanabilir; JSON veya SARIF çıktısı alabilirsiniz.
+
+## Hızlı başlangıç
+
+Node.js 20 veya üzeri ve Git gerekir. Paket kurmadan doğrudan kaynak koddan çalıştırın:
+
+```bash
+git clone https://github.com/YusufBeratZengin/prompt-lint.git
+cd prompt-lint
+node bin/prompt-lint.js --no-color test/fixtures/clean/CLAUDE.md
+```
+
+Temiz örnek, `No problems found` mesajını verir ve 0 çıkış koduyla tamamlanır. Bulguları görmek için aşağıdaki demoyu çalıştırın; bilerek hatalı hazırlanmış bu dosya 1 çıkış koduyla sonlanır.
+
+<details>
+<summary>Demo komutu ve terminal çıktısının tamamı</summary>
+
 ```text
 $ node bin/prompt-lint.js --no-color test/fixtures/dirty/bloated.md
 
@@ -23,9 +46,11 @@ test/fixtures/dirty/bloated.md (~211 tokens, 107 words)
 ✖ 11 problems (4 errors, 7 warnings)
 ```
 
+</details>
+
 ## Kurulum
 
-Node.js 20 veya üzeri gerekir. Projenize kurmak için:
+Npm üzerinden yayımlanan bir sürümü projenize kurmak için:
 
 ```bash
 npm install --save-dev prompt-lint
@@ -33,7 +58,7 @@ npm install --save-dev prompt-lint
 
 Kurulumdan sonra `npx prompt-lint` ile çalıştırın. Aşağıdaki komutlar kaynak kod deposunda `node bin/prompt-lint.js` kullanır; başka bir projede bu kısmı `npx prompt-lint` ile değiştirin.
 
-## Kullanım
+## Kullanım örnekleri
 
 ### CLI
 
@@ -151,11 +176,23 @@ examples/CLAUDE.bad.md (~30 tokens, 10 words)
 
 Linter, Markdown satırlarını ayrıştırır, token sayısını tahmin eder, on iki deterministik kuralı çalıştırır ve bulguları raporlar. Kurallar ağ isteği yapmaz. PL003, karşıt İngilizce yönergelerin normalleştirilmiş nesneleri ve koşul ekleri aynıysa çelişki bildirir; iki yönergede de koşul bulunmaması da buna dahildir. Farklı koşulları raporlamaz. Eski `threshold` seçeneği kabul edilir ancak bu birebir eşleşme yöntemini artık etkilemez.
 
-## Sınırlamalar ve gizlilik
+## Sık sorulan sorular ve sınırlamalar
+
+### Analiz sırasında prompt'lar bir servise gönderiliyor mu?
+
+Analiz yerel olarak çalışır; prompt'lar dışarı gönderilmez. Sır bildirimlerinde eşleşen değer maskelenir ancak raporda başka prompt metinleri ve dosya yolları bulunabilir. Paylaşmadan önce raporu gözden geçirin.
+
+### Token sayıları kesin mi, hangi diller destekleniyor?
 
 Token sayıları sezgisel tahminlerdir; araç bir tokenizer değildir. Doğruluk metne ve modele göre değişir. Kesin bütçe için hedef modelin tokenizer'ını kullanın. Statik kurallar anlam düzeyindeki çelişkileri kaçırabilir veya geçerli talimatları işaretleyebilir. Dile bağlı kurallar ağırlıklı olarak İngilizceyi tanır.
 
-Analiz yerel olarak çalışır; prompt'lar dışarı gönderilmez. Sır bildirimlerinde eşleşen değer maskelenir ancak raporda başka prompt metinleri ve dosya yolları bulunabilir. Paylaşmadan önce raporu gözden geçirin.
+### Npm paketi bulamazsa aracı kullanabilir miyim?
+
+Evet. [Hızlı başlangıç](#hızlı-başlangıç), kaynak kodu kullanır ve paket kurulumu gerektirmez. Npm rozeti kayıt sistemindeki durumu yansıtır; paket yayımlanmadan önce sürüm bilgisi görünmeyebilir.
+
+### Demo neden 1 çıkış koduyla sonlanıyor?
+
+Demo dosyası bilerek lint hataları içerir. Kurulumu doğrulamak için temiz örneği kullanın. CI davranışı ve uyarı sınırları için [Çıkış kodları](#çıkış-kodları) bölümüne bakın.
 
 ## Pre-commit ve CI
 
@@ -195,10 +232,13 @@ Kaynak kod deposunda:
 npm ci
 npm run lint
 npm test
+npm run demo:check
 npm pack --dry-run
 ```
 
-Testler ağ erişimi olmadan `node:test` ile çalışır. CI, Windows ve Linux üzerinde Node.js 20, 22 ve 24 sürümlerini kapsar.
+Testler ağ erişimi olmadan `node:test` ile çalışır. `npm test`, Node.js'in yerleşik satır, dal ve fonksiyon kapsamı raporunu hem terminalde hem CI çıktısında gösterir. CI, Windows ve Linux üzerinde Node.js 20, 22 ve 24 sürümlerini kapsar. CodeQL, JavaScript kodunu push ve pull request olaylarında ve haftalık olarak analiz eder.
+
+Terminal görselini `npm run demo` ile yeniden üretin. `npm run demo:check`, depodaki görselin güncel CLI çıktısıyla eşleştiğini doğrular. Proje JavaScript kullanır; ayrı bir tür denetimi komutu yoktur.
 
 ## Katkıda bulunma
 

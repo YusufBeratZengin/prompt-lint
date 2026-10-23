@@ -4,6 +4,29 @@
 
 A local, offline, zero-dependency linter for LLM prompts and agent instructions such as `CLAUDE.md`, `AGENTS.md`, and `.cursorrules`.
 
+![Terminal demo showing real prompt-lint diagnostics and a summary of 11 problems](docs/demo.svg)
+
+## Why prompt-lint?
+
+- Run twelve deterministic rules locally, with no API keys, network calls, or runtime dependencies.
+- Catch contradictions, repeated instructions, unresolved placeholders, broken links, and exposed secrets in one pass.
+- Use the same checks in your terminal, ESM code, and CI with JSON or SARIF output.
+
+## Quick start
+
+Requires Node.js 20 or newer and Git. Run directly from source without installing packages:
+
+```bash
+git clone https://github.com/YusufBeratZengin/prompt-lint.git
+cd prompt-lint
+node bin/prompt-lint.js --no-color test/fixtures/clean/CLAUDE.md
+```
+
+The clean fixture prints `No problems found` and exits 0. To see diagnostics, run the demo below; this intentionally flawed fixture exits 1.
+
+<details>
+<summary>Demo command and full terminal output</summary>
+
 ```text
 $ node bin/prompt-lint.js --no-color test/fixtures/dirty/bloated.md
 
@@ -23,9 +46,11 @@ test/fixtures/dirty/bloated.md (~211 tokens, 107 words)
 ✖ 11 problems (4 errors, 7 warnings)
 ```
 
+</details>
+
 ## Installation
 
-Requires Node.js 20 or newer. Install in your project:
+To use an npm release in your project:
 
 ```bash
 npm install --save-dev prompt-lint
@@ -33,7 +58,7 @@ npm install --save-dev prompt-lint
 
 Use `npx prompt-lint` after installation. The source-checkout commands below use `node bin/prompt-lint.js`; in another project, replace that prefix with `npx prompt-lint`.
 
-## Usage
+## Usage examples
 
 ### CLI
 
@@ -151,11 +176,23 @@ Configuration is read from `.promptlintrc.json`, `.promptlintrc`, or the `prompt
 
 The linter parses Markdown lines, estimates token usage, runs twelve deterministic static rules, and formats diagnostics. Rules have no network calls. PL003 compares opposing English directives only when normalized objects and qualifier tails match, including two empty tails; differing scopes are left unreported. Its legacy `threshold` option remains accepted but no longer changes this exact-match heuristic.
 
-## Limitations and privacy
+## FAQ and limitations
+
+### Does analysis send prompts to a service?
+
+Analysis runs locally and does not upload prompts. Secret diagnostics mask the matched value, but reports can contain other prompt text and file paths. Review reports before sharing them.
+
+### Are token counts exact, and which languages are supported?
 
 Token counts are heuristic estimates, not a tokenizer. Accuracy varies with text and model; use the target model's tokenizer for exact budgets. Static rules can miss semantic contradictions or flag valid instructions. Language-based rules primarily recognize English.
 
-Analysis runs locally and does not upload prompts. Secret diagnostics mask the matched value, but reports can contain other prompt text and file paths. Review reports before sharing them.
+### Can I use it if npm cannot find the package?
+
+Yes. The [Quick start](#quick-start) uses the source checkout and needs no package installation. The npm badge reflects the registry and may be unavailable before publication.
+
+### Why does the demo exit with status 1?
+
+It intentionally includes lint errors. Use the clean fixture to verify setup. See [Exit codes](#exit-codes) for CI behavior and warning limits.
 
 ## Pre-commit and CI
 
@@ -195,10 +232,13 @@ From a source checkout:
 npm ci
 npm run lint
 npm test
+npm run demo:check
 npm pack --dry-run
 ```
 
-Tests use `node:test` without network access. CI covers Node.js 20, 22, and 24 on Windows and Linux.
+Tests use `node:test` without network access. `npm test` prints native Node.js line, branch, and function coverage in the terminal and CI. CI covers Node.js 20, 22, and 24 on Windows and Linux; CodeQL analyzes JavaScript on pushes, pull requests, and a weekly schedule.
+
+Regenerate the terminal image with `npm run demo`; `npm run demo:check` verifies that the committed image matches current CLI output. The project ships JavaScript and has no separate typecheck command.
 
 ## Contributing
 

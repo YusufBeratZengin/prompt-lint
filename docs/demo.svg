@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="504" viewBox="0 0 1280 504" role="img" aria-labelledby="title description">
+  <title id="title">prompt-lint terminal demo</title>
+  <desc id="description">Real CLI output from the intentionally flawed fixture: 11 problems (4 errors, 7 warnings). Long lines wrap for readability.</desc>
+  <rect x="0.5" y="0.5" width="1279" height="503" rx="14" fill="#1e1e2e" stroke="#45475a"/>
+  <path d="M15 1H1265Q1279 1 1279 15V46H1V15Q1 1 15 1Z" fill="#313244"/>
+  <circle cx="25" cy="24" r="6" fill="#f38ba8"/>
+  <circle cx="47" cy="24" r="6" fill="#f9e2af"/>
+  <circle cx="69" cy="24" r="6" fill="#a6e3a1"/>
+  <text x="640" y="29" text-anchor="middle" fill="#cdd6f4" font-family="monospace" font-size="13">prompt-lint · offline prompt analysis</text>
+  <g font-family="Consolas, 'Liberation Mono', monospace" font-size="14" xml:space="preserve">
+    <text x="24" y="78" fill="#a6e3a1">$ node bin/prompt-lint.js --no-color test/fixtures/dirty/bloated.md</text>
+    <text x="24" y="101" fill="#cdd6f4"></text>
+    <text x="24" y="124" fill="#cdd6f4">test/fixtures/dirty/bloated.md (~211 tokens, 107 words)</text>
+    <text x="24" y="147" fill="#f9e2af">  3:1    warning  Heading depth (5) exceeds recommended maximum depth of 4. Flatten hierarchy to improve LLM instruction retrieval.  PL011</text>
+    <text x="24" y="170" fill="#f9e2af">  5:1    warning  Excessive ALL-CAPS text detected (&quot;DO NOT EVER FORGET TO FOLLOW INSTRUCTIONS PROMP...&quot;). Models do not require shouting; use</text>
+    <text x="24" y="193" fill="#cdd6f4">    precise phrasing instead.  PL005</text>
+    <text x="24" y="216" fill="#f9e2af">  8:1    warning  Line is duplicate or near-duplicate (80% similarity) of line 7: &quot;Always use TypeScript for all files in this rep...&quot;.  PL002</text>
+    <text x="24" y="239" fill="#f38ba8">  8:1    error    Conflicting directive on line 8 (&quot;Never use TypeScript for all files in this repository&quot;) contradicts line 7 (&quot;Always use</text>
+    <text x="24" y="262" fill="#cdd6f4">    TypeScript for all files in this repository&quot;).  PL003</text>
+    <text x="24" y="285" fill="#f9e2af">  10:8   warning  Vague directive &quot;be careful&quot; lacks actionable criteria. Replace with testable constraints or explicit rules.  PL004</text>
+    <text x="24" y="308" fill="#f9e2af">  10:23  warning  Vague directive &quot;do your best&quot; lacks actionable criteria. Replace with testable constraints or explicit rules.  PL004</text>
+    <text x="24" y="331" fill="#f9e2af">  12:42  warning  Excessive emphasis marker &quot;!!!&quot; detected. Multiple punctuation marks do not improve model adherence.  PL006</text>
+    <text x="24" y="354" fill="#f38ba8">  16:36  error    Unresolved template placeholder &quot;{{user_token}}&quot; detected. Replace with actual value before deployment.  PL007</text>
+    <text x="24" y="377" fill="#f38ba8">  17:10  error    Unresolved placeholder tag &quot;&lt;TODO: finish docs&gt;&quot; detected.  PL007</text>
+    <text x="24" y="400" fill="#f38ba8">  19:10  error    Referenced relative file &quot;./non-existent-documentation-file.md&quot; does not exist on disk.  PL008</text>
+    <text x="24" y="423" fill="#f9e2af">  25:1   warning  Line is duplicate or near-duplicate (100% similarity) of line 24: &quot;This is duplicate instruction content that repe...&quot;.  PL002</text>
+    <text x="24" y="446" fill="#cdd6f4"></text>
+    <text x="24" y="469" fill="#f38ba8">✖ 11 problems (4 errors, 7 warnings)</text>
+  </g>
+</svg>

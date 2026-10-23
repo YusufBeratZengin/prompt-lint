@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Reproducible terminal SVG demo with a generator and CI freshness check.
+- Native Node.js test coverage reports in local runs and the CI matrix.
+- Weekly CodeQL analysis for JavaScript and weekly dependency updates for GitHub Actions.
+- Matching English and Turkish quick starts, project rationale, and FAQs.
 - Configuration validation with actionable errors and a published JSON Schema.
 - CLI regression coverage for colors, exit codes, warning limits, quiet output, usage errors, and invalid configurations.
 - Runnable good/bad instruction examples and example configuration.
@@ -30,7 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Avoid PL003 contradictions between directives with different qualifier scopes or objects.
 - Emit only the most specific PL009 diagnostic for overlapping secret matches.
 
-## [0.1.0] - 2026-10-22
+## [0.1.0] - 2026-10-23
 
 ### Added
 - Initial release of prompt-lint.
